@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>V3.0 - Captura facial automática (prueba local)</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f5f9;font-family:Arial,sans-serif;color:#253247;padding:18px}
+main{max-width:490px;margin:12px auto;background:#fff;border-radius:16px;padding:23px;box-shadow:0 4px 18px #0001}
+h2{text-align:center;color:#174b85;margin:0 0 8px}.sub{text-align:center;color:#607286;font-size:14px;line-height:1.5}
+label{display:block;font-weight:bold;margin:20px 0 8px}input{width:100%;padding:14px;border:1px solid #cbd6e3;border-radius:9px;font-size:18px;text-align:center}
+button{width:100%;border:0;border-radius:10px;padding:15px;background:#1766ad;color:white;font-size:15px;font-weight:bold;margin-top:12px;cursor:pointer}button:disabled{opacity:.5;cursor:default}
+.camera{position:relative;background:#17212e;border-radius:12px;overflow:hidden;margin-top:18px;min-height:230px;display:flex;align-items:center}
+video{width:100%;display:block;transform:scaleX(-1)}.guide{position:absolute;width:58%;height:72%;border:3px dashed white;border-radius:48%;left:21%;top:14%;pointer-events:none}.guide.good{border-color:#3ee39b;border-style:solid}
+#status{background:#edf4fc;border-radius:10px;padding:14px;white-space:pre-line;line-height:1.5;margin-top:16px;font-size:14px}
+#photo{display:none;width:100%;max-height:360px;object-fit:contain;margin-top:14px;border-radius:10px}
+small{display:block;text-align:center;margin-top:17px;color:#637387;line-height:1.5}
+</style>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+</head>
+<body>
+<main>
+<h2>Captura Facial V3.0</h2>
+<p class="sub">Prueba de captura automática, sin seleccionar fotografía de referencia</p>
+<label for="dni">DNI de prueba</label>
+<input id="dni" inputmode="numeric" maxlength="8" placeholder="Ingrese 8 dígitos" autocomplete="off">
+<div class="camera"><video id="video" autoplay muted playsinline></video><div id="guide" class="guide"></div></div>
+<button id="start">Iniciar captura automática</button>
+<button id="again" style="display:none;background:#15915c">Repetir captura</button>
+<div id="status" role="status" aria-live="polite">Ingrese un DNI de prueba y presione Iniciar captura automática.</div>
+<img id="photo" alt="Fotografía capturada localmente">
+<small>Prueba local: no se consulta Google Sheets, no se transmite ni almacena la imagen, no se comprueba identidad o presencia real y no se registra asistencia.</small>
+</main>
+<canvas id="canvas" hidden></canvas>
+<script>
+'use strict';
+const MODEL_URL='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+const STABLE_MS=2000, ATTEMPT_MS=9000, MAX_ATTEMPTS=3;
+const $=id=>document.getElementById(id);
+let stream=null, running=false, generation=0, loaded=false;
+function status(s){$('status').textContent=s;}
+function stop(){running=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}$('video').pause();$('video').srcObject=null;}
+function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function centered(box,w,h){const x=(box.x+box.width/2)/w,y=(box.y+box.height/2)/h;return Math.abs(x-.5)<=.20&&Math.abs(y-.5)<=.25&&box.width>=w*.20&&box.width<=w*.85;}
+function frontal(landmarks){const p=landmarks.positions,n=p[30],a=p[36],b=p[45],d=Math.hypot(b.x-a.x,b.y-a.y);return d>1&&Math.abs(n.x-(a.x+b.x)/2)/d<=.22;}
+async function models(){if(loaded)return;if(typeof faceapi==='undefined')throw Error('No se cargó face-api.js.');await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)]);loaded=true;}
+async function start(){
+ const dni=$('dni').value.trim();if(!/^\d{8}$/.test(dni)){status('Ingrese un DNI de prueba de 8 dígitos.');return;}
+ const token=++generation;stop();$('guide').classList.remove('good');$('photo').style.display='none';$('photo').removeAttribute('src');$('start').disabled=true;$('again').style.display='none';
+ try{
+  status('Cargando detector facial...');await models();if(token!==generation)return;
+  status('Solicitando permiso de cámara...');stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'user'},width:{ideal:640},height:{ideal:480}}});
+  if(token!==generation){stop();return;}$('video').srcObject=stream;await $('video').play();running=true;
+  const v=$('video'),options=new faceapi.TinyFaceDetectorOptions({inputSize:416,scoreThreshold:.35});
+  for(let attempt=1;attempt<=MAX_ATTEMPTS&&running&&token===generation;attempt++){
+   const began=performance.now();let stable=null;
+   while(running&&token===generation&&performance.now()-began<ATTEMPT_MS){
+    if(!v.videoWidth){await wait(200);continue;}
+    const faces=await faceapi.detectAllFaces(v,options).withFaceLandmarks();if(!running||token!==generation)break;
+    let message='';if(faces.length!==1)message=faces.length?'Debe aparecer una sola persona.':'Mira directamente a la cámara.';
+    else if(!frontal(faces[0].landmarks))message='Mira de frente.';
+    else if(!centered(faces[0].detection.box,v.videoWidth,v.videoHeight))message='Centra tu rostro y ajusta la distancia.';
+    if(message){stable=null;$('guide').classList.remove('good');status('Intento '+attempt+' de '+MAX_ATTEMPTS+'\n'+message);}
+    else{
+     $('guide').classList.add('good');if(stable===null)stable=performance.now();const remaining=Math.max(0,(STABLE_MS-(performance.now()-stable))/1000);
+     status('Rostro frontal detectado.\nMantente quieto: '+remaining.toFixed(1)+' s');
+     if(performance.now()-stable>=STABLE_MS){
+      const c=$('canvas');c.width=v.videoWidth;c.height=v.videoHeight;const ctx=c.getContext('2d');ctx.translate(c.width,0);ctx.scale(-1,1);ctx.drawImage(v,0,0,c.width,c.height);
+      $('photo').src=c.toDataURL('image/jpeg',.85);$('photo').style.display='block';stop();status('CAPTURA AUTOMÁTICA COMPLETADA\nDNI de sesión: '+dni+'\nImagen visible solo en este navegador.\nPendiente de revisión: NO se ha comprobado la identidad ni registrado asistencia.');$('again').style.display='block';return;
+     }
+    }
+    await wait(150);
+   }
+  }
+  if(token===generation){stop();status('No se logró la captura automática en tres intentos. Mejora la iluminación y vuelve a intentarlo.');$('again').style.display='block';}
+ }catch(err){if(token===generation){stop();status('No se pudo completar la captura: '+(err.message||String(err)));$('again').style.display='block';}}
+ finally{if(token===generation)$('start').disabled=false;}
+}
+$('start').addEventListener('click',start);$('again').addEventListener('click',start);window.addEventListener('pagehide',()=>{generation++;stop();});
+</script>
+</body>
+</html>
