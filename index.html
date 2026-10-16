@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Reconocimiento Facial QR V2.2.3</title>
+<title>Reconocimiento Facial QR V2.2.4</title>
 
 <style>
 * {
@@ -157,6 +157,7 @@ button:disabled {
   defer
   src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js">
 </script>
+
 </head>
 
 <body>
@@ -166,7 +167,7 @@ button:disabled {
   <h2>Reconocimiento Facial QR</h2>
 
   <p class="subtitulo">
-    Prototipo V2.2.3 - Comparación facial automática
+    Prototipo V2.2.4 - Comparación facial automática
   </p>
 
   <div class="seccion">
@@ -248,7 +249,7 @@ button:disabled {
   </div>
 
   <p class="nota">
-    Prototipo experimental V2.2.3.
+    Prototipo experimental V2.2.4.
     Los descriptores faciales se procesan
     localmente en el navegador.
     No se almacenan fotografías en
@@ -296,17 +297,6 @@ function actualizarGuia(correcta) {
 function esperar(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-/*
- * V2.2.3
- * CORRECCIÓN DE IMAGEN DE REFERENCIA
- *
- * Se utiliza FileReader para conservar
- * la imagen como una URL de datos.
- *
- * Esto evita que desaparezca la imagen
- * al terminar el análisis facial.
- */
 
 function leerImagen(archivo) {
   return new Promise((resolve, reject) => {
@@ -545,11 +535,6 @@ async function prepararReferencia() {
 
   referenciaLista = true;
 
-  /*
-   * La URL de datos sigue siendo válida
-   * y permite mostrar la imagen.
-   */
-
   document.getElementById(
     "imagenReferencia"
   ).src = imagen.src;
@@ -694,6 +679,17 @@ async function iniciarSistema() {
 
 }
 
+/*
+ * V2.2.4
+ * DETECCIÓN FACIAL Y DESCRIPTOR EN VIVO
+ *
+ * Se obtiene el descriptor facial durante
+ * el análisis del video.
+ *
+ * Así evitamos una segunda detección
+ * sobre la fotografía capturada.
+ */
+
 async function analizarVideo(miGeneracion) {
 
   const video =
@@ -734,7 +730,8 @@ async function analizarVideo(miGeneracion) {
           video,
           opcionesDetector()
         )
-        .withFaceLandmarks();
+        .withFaceLandmarks()
+        .withFaceDescriptors();
 
       if (
         !ejecutando ||
@@ -834,7 +831,8 @@ async function analizarVideo(miGeneracion) {
       ) {
 
         await capturarYComparar(
-          miGeneracion
+          miGeneracion,
+          rostro.descriptor
         );
 
         break;
@@ -861,7 +859,21 @@ async function analizarVideo(miGeneracion) {
 
 }
 
-async function capturarYComparar(miGeneracion) {
+/*
+ * V2.2.4
+ * CAPTURA AUTOMÁTICA Y COMPARACIÓN
+ *
+ * Recibimos directamente el descriptor
+ * del rostro detectado en vivo.
+ *
+ * No realizamos una segunda detección
+ * facial sobre el canvas.
+ */
+
+async function capturarYComparar(
+  miGeneracion,
+  descriptorCaptura
+) {
 
   if (
     capturado ||
@@ -927,40 +939,9 @@ async function capturarYComparar(miGeneracion) {
 
   try {
 
-    const resultados = await faceapi
-      .detectAllFaces(
-        canvas,
-        opcionesDetector()
-      )
-      .withFaceLandmarks()
-      .withFaceDescriptors();
-
     if (
       miGeneracion !== generacion
     ) return;
-
-    if (resultados.length !== 1) {
-
-      throw new Error(
-        "La captura no contiene exactamente " +
-        "un rostro detectable."
-      );
-
-    }
-
-    const orientacion =
-      calcularOrientacion(
-        resultados[0].landmarks
-      );
-
-    if (orientacion > 0.22) {
-
-      throw new Error(
-        "El rostro estaba demasiado girado " +
-        "al realizar la captura."
-      );
-
-    }
 
     if (
       !referenciaLista ||
@@ -973,10 +954,22 @@ async function capturarYComparar(miGeneracion) {
 
     }
 
+    if (
+      !descriptorCaptura ||
+      descriptorCaptura.length !== 128
+    ) {
+
+      throw new Error(
+        "No se obtuvo un descriptor facial válido " +
+        "durante la captura."
+      );
+
+    }
+
     const distancia =
       faceapi.euclideanDistance(
         descriptorReferencia,
-        resultados[0].descriptor
+        descriptorCaptura
       );
 
     const interpretacion =
@@ -988,7 +981,7 @@ async function capturarYComparar(miGeneracion) {
       "COMPARACIÓN FACIAL COMPLETADA\n\n" +
 
       "Referencia: rostro detectado\n" +
-      "Captura: rostro detectado\n\n" +
+      "Captura: rostro detectado en vivo\n\n" +
 
       "Distancia facial: " +
       distancia.toFixed(4) +
