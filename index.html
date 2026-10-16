@@ -6,10 +6,12 @@
   <meta name="viewport"
         content="width=device-width, initial-scale=1">
 
-  <title>Reconocimiento Facial QR V2.2.0</title>
+  <title>Reconocimiento Facial QR V2.2.1</title>
 
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -40,45 +42,41 @@
       margin-bottom: 18px;
     }
 
-    video {
-      width: 100%;
-      max-height: 400px;
-      object-fit: contain;
+    .camara {
+      position: relative;
+      overflow: hidden;
+      border-radius: 14px;
       background: #17212e;
-      border-radius: 12px;
+    }
+
+    video {
+      display: block;
+      width: 100%;
+      max-height: 420px;
+      object-fit: contain;
       transform: scaleX(-1);
     }
 
-    .fotografias {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-top: 18px;
+    .guia {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 58%;
+      height: 70%;
+      transform: translate(-50%, -50%);
+      border: 3px dashed rgba(255,255,255,.75);
+      border-radius: 48%;
+      pointer-events: none;
     }
 
-    .tarjeta {
-      border: 1px solid #dce4ed;
-      border-radius: 12px;
-      padding: 10px;
-    }
-
-    .tarjeta h3 {
-      font-size: 13px;
-      margin: 5px 0 10px;
-    }
-
-    .tarjeta img {
-      display: none;
-      width: 100%;
-      aspect-ratio: 3 / 4;
-      object-fit: contain;
-      background: #edf1f5;
-      border-radius: 8px;
+    .guia.correcta {
+      border-color: #3ee39b;
+      border-style: solid;
     }
 
     button {
       width: 100%;
-      padding: 14px;
+      padding: 15px;
       margin-top: 12px;
       border: none;
       border-radius: 10px;
@@ -94,10 +92,12 @@
       cursor: not-allowed;
     }
 
-    .verde { background: #15915c; }
+    .verde {
+      background: #15915c;
+    }
 
     .estado {
-      margin-top: 18px;
+      margin-top: 16px;
       padding: 14px;
       background: #edf4fc;
       border-radius: 10px;
@@ -105,7 +105,18 @@
       line-height: 1.6;
       white-space: pre-line;
       overflow-wrap: anywhere;
-      text-align: left;
+    }
+
+    .resultado {
+      display: none;
+      margin-top: 18px;
+    }
+
+    .resultado img {
+      width: 75%;
+      max-width: 260px;
+      border-radius: 12px;
+      background: #edf1f5;
     }
 
     .nota {
@@ -128,57 +139,39 @@
   <h2>Reconocimiento Facial QR</h2>
 
   <p class="subtitulo">
-    Prototipo V2.2.0 - Control de orientación facial
+    Prototipo V2.2.1 - Captura automática
   </p>
 
-  <video id="video" autoplay muted playsinline></video>
-
-  <button onclick="abrirCamara()">
-    1. Abrir cámara frontal
-  </button>
-
-  <button id="btnReferencia"
-          onclick="capturar(1)" disabled>
-    2. Capturar rostro de referencia
-  </button>
-
-  <button id="btnComparacion"
-          onclick="capturar(2)" disabled>
-    3. Capturar rostro de comparación
-  </button>
-
-  <div class="fotografias">
-    <div class="tarjeta">
-      <h3>Foto 1: Referencia</h3>
-      <img id="imagen1" alt="Referencia">
-    </div>
-
-    <div class="tarjeta">
-      <h3>Foto 2: Comparación</h3>
-      <img id="imagen2" alt="Comparación">
-    </div>
+  <div class="camara">
+    <video id="video" autoplay muted playsinline></video>
+    <div id="guia" class="guia"></div>
   </div>
 
-  <button id="btnModelos" onclick="cargarModelos()">
-    4. Cargar modelos de IA
+  <button id="btnIniciar" onclick="iniciarSistema()">
+    Iniciar verificación facial
   </button>
 
-  <button id="btnComparar"
+  <button id="btnReintentar"
           class="verde"
-          onclick="compararRostros()" disabled>
-    5. Verificar orientación y comparar
+          onclick="reiniciarCaptura()"
+          style="display:none">
+    Repetir captura
   </button>
 
   <div id="estado" class="estado">
-    Abre la cámara frontal para comenzar.
+    Presiona "Iniciar verificación facial".
+  </div>
+
+  <div id="resultado" class="resultado">
+    <h3>Fotografía capturada automáticamente</h3>
+    <img id="foto" alt="Captura facial">
   </div>
 
   <p class="nota">
-    Prototipo experimental. La orientación se estima
-    mediante puntos faciales; no es una medición
-    precisa del ángulo de la cabeza ni una prueba
-    de presencia real. No se envían fotografías
-    a Google Sheets ni a Drive.
+    Prototipo experimental de captura automática.
+    No realiza todavía verificación de identidad
+    ni detección de presencia real. No registra
+    asistencias ni envía fotografías a servidores.
   </p>
 
 </div>
@@ -189,80 +182,312 @@
   const RUTA_MODELOS =
     "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights";
 
-  let streamCamara = null;
-  let modelosListos = false;
-  let foto1Lista = false;
-  let foto2Lista = false;
-  let procesando = false;
+  const TIEMPO_ESTABLE = 2000;
+  const INTERVALO_ANALISIS = 350;
 
-  function estado(mensaje) {
+  let streamCamara = null;
+  let ejecutando = false;
+  let capturado = false;
+  let inicioEstabilidad = null;
+  let ultimoAnalisis = 0;
+  let generacion = 0;
+
+  function mostrarEstado(mensaje) {
     document.getElementById("estado").textContent =
       mensaje;
   }
 
-  function actualizarBotones() {
-    const camaraLista = !!streamCamara;
-
-    document.getElementById("btnReferencia").disabled =
-      !camaraLista;
-
-    document.getElementById("btnComparacion").disabled =
-      !camaraLista;
-
-    document.getElementById("btnComparar").disabled =
-      !modelosListos ||
-      !foto1Lista ||
-      !foto2Lista ||
-      procesando;
+  function actualizarGuia(correcta) {
+    document.getElementById("guia").classList.toggle(
+      "correcta", correcta
+    );
   }
 
-  async function abrirCamara() {
-    try {
-      detenerCamara();
-
-      if (!navigator.mediaDevices ||
-          !navigator.mediaDevices.getUserMedia) {
-        throw new Error(
-          "El navegador no permite acceder a la cámara."
-        );
-      }
-
-      estado("Solicitando acceso a la cámara...");
-
-      streamCamara =
-        await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: "user" },
-            width: { ideal: 640 },
-            height: { ideal: 480 }
-          }
-        });
-
-      const video = document.getElementById("video");
-      video.srcObject = streamCamara;
-      await video.play();
-
-      estado("Cámara frontal activada.");
-
-    } catch (error) {
-      detenerCamara();
-      estado(
-        "Error de cámara:\n" +
-        error.name + ": " + error.message
+  async function cargarModelos() {
+    if (typeof faceapi === "undefined") {
+      throw new Error(
+        "No se pudo cargar la biblioteca facial."
       );
     }
 
-    actualizarBotones();
+    await faceapi.nets.tinyFaceDetector
+      .loadFromUri(RUTA_MODELOS);
+
+    await faceapi.nets.faceLandmark68Net
+      .loadFromUri(RUTA_MODELOS);
   }
 
-  function capturar(numero) {
+  async function abrirCamara() {
+    if (!navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia) {
+      throw new Error(
+        "El navegador no permite abrir la cámara."
+      );
+    }
+
+    streamCamara =
+      await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: "user" },
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        }
+      });
+
+    const video = document.getElementById("video");
+    video.srcObject = streamCamara;
+    await video.play();
+  }
+
+  async function iniciarSistema() {
+    const miGeneracion = ++generacion;
+    const boton = document.getElementById("btnIniciar");
+
+    boton.disabled = true;
+    detenerCamara();
+
+    capturado = false;
+    ejecutando = false;
+    inicioEstabilidad = null;
+    actualizarGuia(false);
+
+    document.getElementById("resultado").style.display =
+      "none";
+
+    try {
+      mostrarEstado("Cargando modelos de IA...");
+      await cargarModelos();
+
+      if (miGeneracion !== generacion) return;
+
+      mostrarEstado("Abriendo cámara frontal...");
+      await abrirCamara();
+
+      if (miGeneracion !== generacion) {
+        detenerCamara();
+        return;
+      }
+
+      ejecutando = true;
+
+      mostrarEstado(
+        "Cámara activada.\n" +
+        "Coloca tu rostro de frente dentro de la guía."
+      );
+
+      analizarVideo(miGeneracion);
+
+    } catch (error) {
+      detenerCamara();
+      mostrarEstado(
+        "No se pudo iniciar:\n" + error.message
+      );
+      boton.disabled = false;
+    }
+  }
+
+  async function analizarVideo(miGeneracion) {
     const video = document.getElementById("video");
 
-    if (!streamCamara ||
-        !video.videoWidth ||
-        !video.videoHeight) {
-      estado("La cámara no está lista.");
+    while (
+      ejecutando &&
+      !capturado &&
+      miGeneracion === generacion
+    ) {
+      const ahora = performance.now();
+
+      if (
+        ahora - ultimoAnalisis < INTERVALO_ANALISIS
+      ) {
+        await esperar(100);
+        continue;
+      }
+
+      ultimoAnalisis = ahora;
+
+      try {
+        if (!video.videoWidth || !video.videoHeight) {
+          await esperar(150);
+          continue;
+        }
+
+        const opciones =
+          new faceapi.TinyFaceDetectorOptions({
+            inputSize: 416,
+            scoreThreshold: 0.35
+          });
+
+        const rostros =
+          await faceapi
+            .detectAllFaces(video, opciones)
+            .withFaceLandmarks();
+
+        if (
+          !ejecutando ||
+          miGeneracion !== generacion
+        ) {
+          break;
+        }
+
+        if (rostros.length !== 1) {
+          inicioEstabilidad = null;
+          actualizarGuia(false);
+
+          mostrarEstado(
+            rostros.length === 0
+              ? "No se detecta un rostro.\nMira a la cámara."
+              : "Se detectaron varios rostros.\n" +
+                "Debe aparecer una sola persona."
+          );
+
+          await esperar(100);
+          continue;
+        }
+
+        const rostro = rostros[0];
+
+        const orientacion =
+          calcularOrientacion(rostro.landmarks);
+
+        const encuadre =
+          comprobarEncuadre(
+            rostro.detection.box,
+            video.videoWidth,
+            video.videoHeight
+          );
+
+        if (orientacion > 0.22) {
+          inicioEstabilidad = null;
+          actualizarGuia(false);
+
+          mostrarEstado(
+            "Gira tu rostro hacia el frente.\n" +
+            "Índice: " + orientacion.toFixed(3)
+          );
+
+          await esperar(100);
+          continue;
+        }
+
+        if (!encuadre.correcto) {
+          inicioEstabilidad = null;
+          actualizarGuia(false);
+
+          mostrarEstado(encuadre.mensaje);
+
+          await esperar(100);
+          continue;
+        }
+
+        actualizarGuia(true);
+
+        if (inicioEstabilidad === null) {
+          inicioEstabilidad = performance.now();
+        }
+
+        const transcurrido =
+          performance.now() - inicioEstabilidad;
+
+        const restante =
+          Math.max(
+            0,
+            (TIEMPO_ESTABLE - transcurrido) / 1000
+          );
+
+        mostrarEstado(
+          "Rostro detectado correctamente.\n" +
+          "Mantente quieto...\n" +
+          "Captura en " + restante.toFixed(1) +
+          " segundos."
+        );
+
+        if (transcurrido >= TIEMPO_ESTABLE) {
+          capturarAutomaticamente();
+          break;
+        }
+
+      } catch (error) {
+        inicioEstabilidad = null;
+        actualizarGuia(false);
+
+        mostrarEstado(
+          "Error durante el análisis:\n" +
+          error.message
+        );
+
+        await esperar(500);
+      }
+
+      await esperar(100);
+    }
+  }
+
+  function calcularOrientacion(landmarks) {
+    const puntos = landmarks.positions;
+
+    const nariz = puntos[30];
+    const ojo1 = puntos[36];
+    const ojo2 = puntos[45];
+
+    const distanciaOjos =
+      Math.hypot(
+        ojo2.x - ojo1.x,
+        ojo2.y - ojo1.y
+      );
+
+    if (distanciaOjos < 1) return Infinity;
+
+    const centroX = (ojo1.x + ojo2.x) / 2;
+
+    return Math.abs(nariz.x - centroX) /
+      distanciaOjos;
+  }
+
+  function comprobarEncuadre(box, ancho, alto) {
+    const centroX = box.x + box.width / 2;
+    const centroY = box.y + box.height / 2;
+
+    const desviacionX =
+      Math.abs(centroX - ancho / 2) / ancho;
+
+    const desviacionY =
+      Math.abs(centroY - alto / 2) / alto;
+
+    if (desviacionX > 0.20 ||
+        desviacionY > 0.25) {
+      return {
+        correcto: false,
+        mensaje: "Centra tu rostro en la pantalla."
+      };
+    }
+
+    if (box.width < ancho * 0.20) {
+      return {
+        correcto: false,
+        mensaje: "Acércate un poco a la cámara."
+      };
+    }
+
+    if (box.width > ancho * 0.85) {
+      return {
+        correcto: false,
+        mensaje: "Aléjate un poco de la cámara."
+      };
+    }
+
+    return {
+      correcto: true,
+      mensaje: "Encuadre correcto."
+    };
+  }
+
+  function capturarAutomaticamente() {
+    if (capturado || !streamCamara) return;
+
+    const video = document.getElementById("video");
+
+    if (!video.videoWidth || !video.videoHeight) {
       return;
     }
 
@@ -280,199 +505,42 @@
     );
     ctx.restore();
 
-    const imagen =
-      document.getElementById("imagen" + numero);
+    const foto = document.getElementById("foto");
 
-    if (numero === 1) foto1Lista = false;
-    else foto2Lista = false;
+    foto.src = canvas.toDataURL("image/jpeg", 0.9);
 
-    actualizarBotones();
+    document.getElementById("resultado").style.display =
+      "block";
 
-    imagen.onload = function() {
-      imagen.style.display = "block";
+    capturado = true;
+    ejecutando = false;
 
-      if (numero === 1) foto1Lista = true;
-      else foto2Lista = true;
+    detenerCamara();
 
-      actualizarBotones();
-      estado("Fotografía " + numero + " capturada.");
-    };
+    mostrarEstado(
+      "CAPTURA AUTOMÁTICA COMPLETADA\n\n" +
+      "Se detectó un rostro frontal y centrado.\n" +
+      "La fotografía se capturó sin pulsar ningún botón.\n\n" +
+      "Esto todavía no verifica la identidad."
+    );
 
-    imagen.onerror = function() {
-      estado("No se pudo cargar la fotografía.");
-    };
-
-    imagen.src = canvas.toDataURL("image/jpeg", 0.9);
+    document.getElementById("btnReintentar").style.display =
+      "block";
   }
 
-  async function cargarModelos() {
-    const boton = document.getElementById("btnModelos");
-    boton.disabled = true;
+  function reiniciarCaptura() {
+    document.getElementById("btnReintentar").style.display =
+      "none";
 
-    estado("Cargando modelos de IA...");
+    document.getElementById("btnIniciar").disabled =
+      false;
 
-    try {
-      if (typeof faceapi === "undefined") {
-        throw new Error(
-          "La biblioteca facial no está disponible."
-        );
-      }
-
-      await faceapi.nets.tinyFaceDetector
-        .loadFromUri(RUTA_MODELOS);
-
-      await faceapi.nets.faceLandmark68Net
-        .loadFromUri(RUTA_MODELOS);
-
-      await faceapi.nets.faceRecognitionNet
-        .loadFromUri(RUTA_MODELOS);
-
-      modelosListos = true;
-
-      estado("Los tres modelos de IA están listos.");
-
-    } catch (error) {
-      modelosListos = false;
-      boton.disabled = false;
-      estado("Error de modelos:\n" + error.message);
-    }
-
-    actualizarBotones();
-  }
-
-  async function analizarRostro(imagen, numero) {
-    const opciones =
-      new faceapi.TinyFaceDetectorOptions({
-        inputSize: 416,
-        scoreThreshold: 0.2
-      });
-
-    const resultados =
-      await faceapi
-        .detectAllFaces(imagen, opciones)
-        .withFaceLandmarks()
-        .withFaceDescriptors();
-
-    if (resultados.length === 0) {
-      throw new Error(
-        "Foto " + numero +
-        ": no se detectó ningún rostro."
-      );
-    }
-
-    if (resultados.length > 1) {
-      throw new Error(
-        "Foto " + numero +
-        ": se detectaron varios rostros."
-      );
-    }
-
-    const rostro = resultados[0];
-    const puntos = rostro.landmarks.positions;
-
-    // Puntos del modelo facial de 68 referencias:
-    // 30: nariz; 36 y 45: extremos externos de ojos.
-    const nariz = puntos[30];
-    const ojoIzquierdo = puntos[36];
-    const ojoDerecho = puntos[45];
-
-    const distanciaOjos =
-      Math.hypot(
-        ojoDerecho.x - ojoIzquierdo.x,
-        ojoDerecho.y - ojoIzquierdo.y
-      );
-
-    if (distanciaOjos < 1) {
-      throw new Error(
-        "Foto " + numero +
-        ": no se pudo medir la orientación."
-      );
-    }
-
-    const centroOjos = {
-      x: (ojoIzquierdo.x + ojoDerecho.x) / 2,
-      y: (ojoIzquierdo.y + ojoDerecho.y) / 2
-    };
-
-    const desplazamiento =
-      Math.abs(nariz.x - centroOjos.x) /
-      distanciaOjos;
-
-    // Umbral experimental; NO validado clínicamente
-    // ni calibrado para uso laboral.
-    const LIMITE_ORIENTACION = 0.22;
-
-    if (desplazamiento > LIMITE_ORIENTACION) {
-      throw new Error(
-        "Foto " + numero +
-        ": rostro demasiado girado.\n" +
-        "Mira directamente a la cámara y repite " +
-        "la captura.\n" +
-        "Índice de orientación: " +
-        desplazamiento.toFixed(3)
-      );
-    }
-
-    return {
-      descriptor: rostro.descriptor,
-      orientacion: desplazamiento
-    };
-  }
-
-  async function compararRostros() {
-    procesando = true;
-    actualizarBotones();
-
-    try {
-      estado(
-        "Verificando orientación y comparando rostros..."
-      );
-
-      const resultado1 =
-        await analizarRostro(
-          document.getElementById("imagen1"), 1
-        );
-
-      const resultado2 =
-        await analizarRostro(
-          document.getElementById("imagen2"), 2
-        );
-
-      const distancia =
-        faceapi.euclideanDistance(
-          resultado1.descriptor,
-          resultado2.descriptor
-        );
-
-      estado(
-        "ANÁLISIS COMPLETADO\n\n" +
-        "Foto 1: Orientación aceptada\n" +
-        "Índice: " +
-        resultado1.orientacion.toFixed(3) +
-        "\n\n" +
-        "Foto 2: Orientación aceptada\n" +
-        "Índice: " +
-        resultado2.orientacion.toFixed(3) +
-        "\n\n" +
-        "Distancia facial: " +
-        distancia.toFixed(4) +
-        "\n\n" +
-        "Este resultado no autoriza asistencias."
-      );
-
-    } catch (error) {
-      estado(
-        "ANÁLISIS NO COMPLETADO\n\n" +
-        error.message
-      );
-
-    } finally {
-      procesando = false;
-      actualizarBotones();
-    }
+    iniciarSistema();
   }
 
   function detenerCamara() {
+    ejecutando = false;
+
     if (streamCamara) {
       streamCamara.getTracks().forEach(
         pista => pista.stop()
@@ -484,16 +552,18 @@
     const video = document.getElementById("video");
     video.pause();
     video.srcObject = null;
-
-    actualizarBotones();
   }
 
-  window.addEventListener(
-    "pagehide",
-    detenerCamara
-  );
+  function esperar(ms) {
+    return new Promise(
+      resolve => setTimeout(resolve, ms)
+    );
+  }
 
-  actualizarBotones();
+  window.addEventListener("pagehide", function() {
+    generacion++;
+    detenerCamara();
+  });
 </script>
 
 </body>
