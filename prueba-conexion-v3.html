@@ -1,0 +1,156 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Prueba de conexión GitHub V3.0</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f1f5f9;
+      font-family: Arial, sans-serif;
+      color: #17345b;
+    }
+
+    .contenedor {
+      max-width: 480px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 16px;
+      padding: 25px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 23px;
+    }
+
+    p {
+      line-height: 1.6;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 9px;
+      background: #1769b5;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+    }
+
+    #resultado {
+      margin-top: 20px;
+      padding: 16px;
+      background: #eaf1fa;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="contenedor">
+
+    <h1>Conexión GitHub V3.0</h1>
+
+    <p>
+      Prueba de comunicación con Google Apps Script.
+      No se envían DNI, fotografías ni registros de asistencia.
+    </p>
+
+    <button id="boton" onclick="probarConexion()">
+      Probar conexión
+    </button>
+
+    <div id="resultado">
+      Esperando prueba de conexión.
+    </div>
+
+  </div>
+
+  <script>
+
+    const URL_PUENTE =
+      "https://script.google.com/macros/s/AKfycbyvsvbxcHy7UDTe4r3WMlE1bSIoI4G1h8TCSvzv6nwUHAULreri-RYUvoYQzKYpCdNh/exec";
+
+    async function probarConexion() {
+
+      const boton = document.getElementById("boton");
+      const resultado = document.getElementById("resultado");
+
+      boton.disabled = true;
+      resultado.textContent = "Consultando puente de pruebas...";
+
+      try {
+
+        const respuesta = await fetch(URL_PUENTE, {
+          method: "GET",
+          redirect: "follow",
+          cache: "no-store"
+        });
+
+        if (!respuesta.ok) {
+          throw new Error("HTTP " + respuesta.status);
+        }
+
+        const datos = await respuesta.json();
+
+        if (
+          datos.ok === true &&
+          datos.estado === "CONECTADO"
+        ) {
+
+          resultado.textContent =
+            "CONEXIÓN EXITOSA\n\n" +
+            "Sistema: " + datos.sistema + "\n" +
+            "Versión: " + datos.version + "\n" +
+            "Estado: " + datos.estado + "\n" +
+            "Mensaje: " + datos.mensaje;
+
+        } else {
+
+          resultado.textContent =
+            "El servidor respondió, pero los datos no son los esperados.";
+
+        }
+
+      } catch (error) {
+
+        resultado.textContent =
+          "NO SE PUDO COMPLETAR LA CONEXIÓN\n\n" +
+          "Detalle: " + error.message + "\n\n" +
+          "Puede tratarse de una restricción CORS " +
+          "entre GitHub Pages y Google Apps Script.";
+
+      } finally {
+
+        boton.disabled = false;
+
+      }
+
+    }
+
+  </script>
+
+</body>
+</html>
