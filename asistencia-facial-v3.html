@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Asistencia Facial V3.0 - Simulador</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef3f9;font-family:Arial,sans-serif;color:#173456;padding:18px}.app{max-width:470px;margin:24px auto;background:#fff;padding:24px;border-radius:17px;box-shadow:0 6px 24px #16375c15}h1{text-align:center;font-size:24px;margin:5px 0}p{line-height:1.5}.sub{text-align:center;color:#62768c;font-size:14px}.panel{border:1px solid #d5e0ed;border-radius:12px;padding:16px;margin-top:16px}label{display:block;font-weight:bold;font-size:14px;margin:12px 0 7px}input,select{width:100%;padding:13px;border:1px solid #cbd8e7;border-radius:9px;font-size:16px;background:white}button{display:block;width:100%;background:#176ab3;color:white;border:0;border-radius:9px;padding:14px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:12px}button:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#15845f}.muted{background:#65758a}.info{padding:13px;background:#eaf2fb;border-radius:9px;margin-top:15px;white-space:pre-line;line-height:1.5;font-size:14px}.camera{position:relative;background:#172331;border-radius:12px;overflow:hidden;margin-top:12px;min-height:230px;display:flex;align-items:center;justify-content:center}.camera video,.camera canvas{width:100%;display:block;transform:scaleX(-1)}.oval{position:absolute;left:19%;top:12%;width:62%;height:76%;border:3px dashed #fff;border-radius:50%;pointer-events:none}.hidden{display:none!important}.result{width:100%;border-radius:10px;margin-top:12px}small{display:block;color:#64748b;line-height:1.5;margin-top:13px} .ok{color:#127b52;font-weight:bold}
+</style>
+</head>
+<body>
+<main class="app">
+<h1>Asistencia Facial V3.0</h1>
+<p class="sub">Enrolamiento y asistencia — simulación funcional</p>
+<section class="panel">
+<label for="dni">DNI del trabajador</label>
+<input id="dni" type="text" inputmode="numeric" maxlength="8" placeholder="Ingrese 8 dígitos" autocomplete="off">
+<label for="estado">Estado facial simulado (solo para pruebas)</label>
+<select id="estado">
+<option value="SIN_ENROLAR">SIN ENROLAR</option>
+<option value="PENDIENTE">PENDIENTE</option>
+<option value="RECHAZADO">RECHAZADO</option>
+<option value="APROBADO">APROBADO</option>
+</select>
+<button id="continuar" type="button">Continuar</button>
+</section>
+<section class="panel hidden" id="pasoFacial">
+<strong id="tituloFacial">Captura facial</strong>
+<p id="explicacion"></p>
+<div class="camera"><video id="video" autoplay playsinline muted></video><div class="oval"></div></div>
+<div class="info" id="mensajeCamara">Cámara pendiente de iniciar.</div>
+<button id="iniciar" type="button">Iniciar captura automática</button>
+<img id="foto" class="result hidden" alt="Captura facial local">
+<button id="repetir" type="button" class="muted hidden">Repetir captura</button>
+<button id="seguir" type="button" class="secondary hidden">Continuar al registro de asistencia</button>
+</section>
+<section class="panel hidden" id="pasoAsistencia">
+<strong>Registro de asistencia — demostración</strong>
+<div class="info" id="resultado"></div>
+<button id="simular" type="button" class="secondary">Simular marcación</button>
+<div class="info hidden" id="confirmacion"></div>
+</section>
+<small>Versión de pruebas: no consulta Google Sheets, no transmite ni almacena fotografías, no verifica identidades y no registra asistencias reales. No utilizar para control laboral.</small>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const MODELOS='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+let stream=null,intervalo=null,activo=false,modeloListo=false,estableDesde=0,rostroCapturado=false;
+let dniActual='',estadoActual='';
+function aviso(t){$('mensajeCamara').textContent=t;}
+function detener(){activo=false;if(intervalo){clearInterval(intervalo);intervalo=null;}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;} $('video').srcObject=null;}
+function mostrarPaso(id){['pasoFacial','pasoAsistencia'].forEach(k=>$(k).classList.toggle('hidden',k!==id));}
+$('continuar').onclick=()=>{
+ const dni=$('dni').value.trim();if(!/^\d{8}$/.test(dni)){alert('Ingrese un DNI de 8 dígitos.');return;}
+ detener();dniActual=dni;estadoActual=$('estado').value;rostroCapturado=false;
+ $('foto').classList.add('hidden');$('repetir').classList.add('hidden');$('seguir').classList.add('hidden');$('iniciar').classList.remove('hidden');$('confirmacion').classList.add('hidden');
+ mostrarPaso('pasoFacial');
+ if(estadoActual==='APROBADO'){
+ $('tituloFacial').textContent='Captura para verificación facial';
+ $('explicacion').textContent='Simulación de trabajador aprobado. Esta versión NO compara la imagen con una referencia privada.';
+ }else{
+ $('tituloFacial').textContent='Autogestión del enrolamiento facial';
+ $('explicacion').textContent='Estado: '+estadoActual+'. Se tomará una fotografía provisional. La aprobación corresponde al administrador y no impedirá continuar con la asistencia.';
+ }
+ aviso('Presione Iniciar captura automática.');
+};
+async function cargarModelo(){
+ if(modeloListo)return;
+ if(typeof faceapi==='undefined')throw new Error('No se cargó la biblioteca facial. Compruebe Internet.');
+ await faceapi.nets.tinyFaceDetector.loadFromUri(MODELOS);
+ modeloListo=true;
+}
+async function iniciar(){
+ detener();$('iniciar').disabled=true;$('foto').classList.add('hidden');$('repetir').classList.add('hidden');$('seguir').classList.add('hidden');estableDesde=0;
+ try{
+ aviso('Solicitando cámara...');
+ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+ $('video').srcObject=stream;await $('video').play();
+ aviso('Cargando detector facial...');await cargarModelo();
+ activo=true;aviso('Centre un solo rostro dentro del óvalo y manténgase quieto durante 2 segundos.');
+ intervalo=setInterval(revisar,250);
+ }catch(e){detener();aviso('No se pudo iniciar la captura: '+(e.message||String(e)));$('iniciar').disabled=false;}
+}
+let comprobando=false;
+async function revisar(){
+ if(!activo||comprobando||!$('video').videoWidth)return;
+ comprobando=true;
+ try{
+ const detecciones=await faceapi.detectAllFaces($('video'),new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:.55}));
+ if(detecciones.length!==1){estableDesde=0;aviso(detecciones.length?'Debe aparecer una sola persona.':'Coloque su rostro frente a la cámara.');return;}
+ const b=detecciones[0].box,v=$('video'),cx=b.x+b.width/2,cy=b.y+b.height/2;
+ const centrado=Math.abs(cx-v.videoWidth/2)<v.videoWidth*.18&&Math.abs(cy-v.videoHeight/2)<v.videoHeight*.19;
+ const tamano=b.width>v.videoWidth*.19&&b.width<v.videoWidth*.8;
+ if(!centrado||!tamano){estableDesde=0;aviso('Centre su rostro y ajuste la distancia.');return;}
+ if(!estableDesde)estableDesde=performance.now();
+ const restante=Math.max(0,2-(performance.now()-estableDesde)/1000);
+ aviso('Rostro detectado. Manténgase quieto: '+restante.toFixed(1)+' s');
+ if(restante===0){
+ const canvas=document.createElement('canvas');canvas.width=v.videoWidth;canvas.height=v.videoHeight;
+ const ctx=canvas.getContext('2d');ctx.translate(canvas.width,0);ctx.scale(-1,1);ctx.drawImage(v,0,0);
+ $('foto').src=canvas.toDataURL('image/jpeg',.85);$('foto').classList.remove('hidden');
+ rostroCapturado=true;detener();aviso('CAPTURA AUTOMÁTICA COMPLETADA. Imagen solo visible en este navegador. Identidad no verificada.');
+ $('repetir').classList.remove('hidden');$('seguir').classList.remove('hidden');$('iniciar').classList.add('hidden');
+ }
+ }catch(e){estableDesde=0;aviso('Error de detección: '+(e.message||String(e)));}
+ finally{comprobando=false;}
+}
+$('iniciar').onclick=iniciar;
+$('repetir').onclick=()=>{rostroCapturado=false;$('iniciar').classList.remove('hidden');iniciar();};
+$('seguir').onclick=()=>{
+ if(!rostroCapturado)return;
+ detener();mostrarPaso('pasoAsistencia');
+ $('resultado').textContent='DNI de sesión: '+dniActual+'\nEstado facial simulado: '+estadoActual+'\nCaptura: completada (solo local).\n\n'+(estadoActual==='APROBADO'?'No se ha realizado comparación facial real.':'Enrolamiento pendiente de aprobación administrativa.')+'\n\nLa asistencia puede continuar como provisional.';
+};
+$('simular').onclick=()=>{
+ $('confirmacion').classList.remove('hidden');
+ $('confirmacion').textContent='MARCAJE SIMULADO — PENDIENTE DE REVISIÓN\n\nNo se guardó ninguna asistencia. No se envió DNI ni fotografía al servidor.';
+};
+window.addEventListener('pagehide',detener);
+</script>
+</body>
+</html>
