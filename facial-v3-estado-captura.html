@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QR V3.0 | Captura facial de pruebas</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#17233b;background:#f3f6fa}*{box-sizing:border-box}body{margin:0;padding:24px 14px}.panel{max-width:540px;margin:auto;background:white;border-radius:18px;padding:24px;box-shadow:0 8px 28px #18294c15}h1{font-size:1.4rem;margin:0 0 8px}p{line-height:1.45;color:#526077}label{display:block;margin:16px 0 7px;font-weight:650}input{width:100%;font-size:1.1rem;padding:12px;border:1px solid #bbc7d7;border-radius:10px}button{border:0;border-radius:10px;background:#165cc4;color:#fff;padding:13px 16px;font-size:1rem;font-weight:650;cursor:pointer;width:100%;margin-top:12px}button:disabled{background:#98a9c4;cursor:not-allowed}.secondary{background:#475569}video,canvas{display:block;width:100%;border-radius:12px;margin-top:14px;background:#111827}canvas{display:none}.notice{padding:12px;background:#edf3fd;border-radius:10px;margin-top:14px;white-space:pre-wrap}small{color:#64748b}.hidden{display:none}.warn{background:#fff4dd}
+</style>
+</head>
+<body>
+<main class="panel">
+<h1>Asistencia QR · Facial V3.0</h1>
+<p>Prueba de consulta de estado y captura frontal. <strong>Esta pantalla no guarda fotografías ni registra asistencias.</strong></p>
+<label for="dni">DNI del trabajador</label>
+<input id="dni" inputmode="numeric" maxlength="8" pattern="[0-9]{8}" autocomplete="off" placeholder="8 dígitos">
+<button id="consultar">Consultar estado facial</button>
+<div id="estado" class="notice" role="status">Ingresa el DNI para comenzar.</div>
+<section id="captura" class="hidden">
+<p>Ubica tu rostro frente a la cámara. La fotografía se capturará automáticamente después de una breve cuenta regresiva.</p>
+<button id="activar">Activar cámara</button>
+<video id="video" autoplay muted playsinline></video>
+<canvas id="canvas"></canvas>
+<div id="mensaje" class="notice">Cámara desactivada.</div>
+<button id="repetir" class="secondary hidden">Repetir captura</button>
+</section>
+<p><small>Prueba aislada: no se transmiten imágenes al servidor. El supervisor seguirá siendo responsable de aprobar la identidad en la fase de enrolamiento.</small></p>
+</main>
+<script>
+'use strict';
+// Puente público ya desplegado en V3.2: únicamente consulta y diagnóstico.
+const PUENTE = 'https://script.google.com/macros/s/AKfycbyvsvbxcHy7UDTe4r3WMlE1bSIoI4G1h8TCSvzv6nwUHAULreri-RYUvoYQzKYpCdNh/exec';
+const $ = id => document.getElementById(id);
+let stream = null;
+let cuenta = null;
+function mostrar(id, texto){$(id).textContent = texto;}
+function parar(){if(cuenta){clearTimeout(cuenta);cuenta=null;}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;} $('video').srcObject=null;}
+async function consultar(){
+  parar(); $('captura').classList.add('hidden'); $('repetir').classList.add('hidden');
+  const dni = $('dni').value.trim();
+  if(!/^\d{8}$/.test(dni)){mostrar('estado','Ingresa un DNI de 8 dígitos.');return;}
+  $('consultar').disabled=true;mostrar('estado','Consultando el puente de pruebas…');
+  try{
+    const u = new URL(PUENTE);u.searchParams.set('accion','estado_facial');u.searchParams.set('dni',dni);
+    const r=await fetch(u.toString(),{method:'GET',redirect:'follow'});
+    if(!r.ok)throw new Error('Respuesta HTTP '+r.status);
+    const data=await r.json();
+    if(data.estado==='AUTORIZACION_REQUERIDA'){
+      mostrar('estado','El puente público V3.2 todavía no permite consultar estados individuales. No se ha enviado ninguna fotografía.');
+      $('captura').classList.remove('hidden');
+      return;
+    }
+    if(!data.ok){mostrar('estado',data.mensaje||'No fue posible consultar el estado.');return;}
+    const estado=String(data.estado||'').toUpperCase();
+    mostrar('estado','Estado facial: '+estado+'.');
+    if(estado!=='APROBADO')$('captura').classList.remove('hidden');
+  }catch(e){
+    mostrar('estado','No se pudo completar la consulta: '+e.message+'. Puedes probar la captura local sin guardar datos.');
+    $('captura').classList.remove('hidden');
+  }finally{$('consultar').disabled=false;}
+}
+async function activar(){
+  parar();$('repetir').classList.add('hidden');
+  if(!navigator.mediaDevices?.getUserMedia){mostrar('mensaje','Este navegador no permite acceder a la cámara.');return;}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}});
+    $('video').srcObject=stream;await $('video').play();
+    mostrar('mensaje','Mantén el rostro centrado. Captura automática en 3 segundos…');
+    cuenta=setTimeout(()=>{
+      const v=$('video'),c=$('canvas');
+      c.width=v.videoWidth||640;c.height=v.videoHeight||480;
+      c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+      c.style.display='block';parar();
+      mostrar('mensaje','Fotografía capturada localmente. No se ha enviado ni guardado en Drive.');
+      $('repetir').classList.remove('hidden');
+    },3000);
+  }catch(e){mostrar('mensaje','No se pudo activar la cámara: '+e.message);}
+}
+$('consultar').addEventListener('click',consultar);
+$('activar').addEventListener('click',activar);
+$('repetir').addEventListener('click',()=>{$('canvas').style.display='none';activar();});
+window.addEventListener('pagehide',parar);
+</script>
+</body>
+</html>
