@@ -1,43 +1,1256 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Asistencia QR · Facial V3.0 | Captura guiada mejorada</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Reconocimiento Facial QR V2.2.5</title>
+
 <style>
-:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#17233b;background:#f3f6fa}*{box-sizing:border-box}body{margin:0;padding:20px 12px}.panel{max-width:540px;margin:auto;background:#fff;border-radius:18px;padding:22px;box-shadow:0 8px 28px #18294c15}h1{font-size:1.35rem;margin:0 0 8px}p{line-height:1.5;color:#526077}label{display:block;margin:16px 0 7px;font-weight:650}input{width:100%;font-size:1.1rem;padding:12px;border:1px solid #bbc7d7;border-radius:10px}button{border:0;border-radius:10px;background:#165cc4;color:#fff;padding:13px 16px;font-size:1rem;font-weight:650;cursor:pointer;width:100%;margin-top:12px}button:disabled{background:#98a9c4;cursor:not-allowed}.secondary{background:#475569}.notice{padding:12px;background:#edf3fd;border-radius:10px;margin-top:14px;white-space:pre-wrap}.warn{background:#fff4dd}.ok{background:#e8f7ed}.hidden{display:none!important}small{color:#64748b}.rules{padding-left:22px;color:#46546c;line-height:1.55}.rules li{margin-bottom:4px}.camera-wrap{position:relative;overflow:hidden;border-radius:15px;background:#111827;margin-top:14px;aspect-ratio:3/4}.camera-wrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}.camera-wrap .guide{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}.oval{width:63%;height:68%;border:4px solid #fbbf24;border-radius:50%;box-shadow:0 0 0 100vmax #0005,0 0 18px #0006;transition:border-color .2s}.oval.good{border-color:#22c55e}.guide-label{position:absolute;bottom:15px;left:12px;right:12px;text-align:center;background:#0f172ad9;color:#fff;border-radius:10px;padding:10px;font-weight:650}.count{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:#0f172add;color:#fff;font-size:1.7rem;font-weight:800;border-radius:40px;min-width:55px;text-align:center;padding:6px 14px}.photo{display:none;width:100%;border-radius:12px;margin-top:14px;background:#111827}.status{font-weight:600}#activar{margin-top:8px}
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: #f2f5f9;
+  font-family: Arial, sans-serif;
+  color: #253247;
+}
+
+.contenedor {
+  max-width: 480px;
+  margin: 15px auto;
+  padding: 22px;
+  background: white;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 4px 18px rgba(0,0,0,.08);
+}
+
+h2 {
+  color: #174b85;
+  margin-bottom: 8px;
+}
+
+.subtitulo {
+  color: #687789;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.seccion {
+  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid #dce4ed;
+  border-radius: 12px;
+}
+
+.seccion h3 {
+  font-size: 15px;
+}
+
+input[type=file] {
+  width: 100%;
+  font-size: 13px;
+}
+
+.camara {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #17212e;
+  margin-top: 12px;
+}
+
+video {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  transform: scaleX(-1);
+}
+
+.guia {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 58%;
+  height: 70%;
+  transform: translate(-50%, -50%);
+  border: 3px dashed white;
+  border-radius: 48%;
+  pointer-events: none;
+}
+
+.guia.correcta {
+  border-color: #3ee39b;
+  border-style: solid;
+}
+
+button {
+  width: 100%;
+  padding: 15px;
+  margin-top: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #1766ad;
+  color: white;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.verde {
+  background: #15915c;
+}
+
+.estado {
+  margin-top: 18px;
+  padding: 14px;
+  background: #edf4fc;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.fotos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.fotos img {
+  display: block;
+  width: 100%;
+  height: 210px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #edf1f5;
+}
+
+.fotos p {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.nota {
+  margin-top: 18px;
+  color: #687789;
+  font-size: 12px;
+  line-height: 1.5;
+}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4/face_detection.js" crossorigin="anonymous"></script>
-</head>
-<body>
-<main class="panel">
-<h1>Asistencia QR · Facial V3.0</h1>
-<p>Captura frontal guiada de pruebas. <strong>No se envían fotografías ni se registra asistencia.</strong></p>
-<label for="dni">DNI del trabajador</label><input id="dni" inputmode="numeric" maxlength="8" pattern="[0-9]{8}" autocomplete="off" placeholder="8 dígitos">
-<button id="consultar">Consultar estado facial</button><div id="estado" class="notice" role="status">Ingresa el DNI para comenzar.</div>
-<section id="captura" class="hidden">
-<p><strong>Indicaciones para una buena fotografía:</strong></p>
-<ul class="rules"><li>Un solo rostro frente a la cámara, dentro del óvalo.</li><li>Mira de frente, mantén la cabeza recta y quédate quieto.</li><li>Buena iluminación, sin contraluz ni rostro cubierto.</li><li>Tendrás 8 segundos para acomodarte. Luego mantén el óvalo verde durante 4 segundos; si te mueves, la cuenta se reinicia.</li></ul>
-<button id="activar">Activar cámara y verificar rostro</button>
-<div id="camara" class="camera-wrap hidden"><video id="video" autoplay muted playsinline></video><div class="guide"><div id="ovalo" class="oval"></div><div id="contador" class="count hidden">3</div><div id="indicacion" class="guide-label">Preparando detector facial…</div></div></div>
-<canvas id="foto" class="photo"></canvas><div id="mensaje" class="notice status" role="status">Cámara desactivada.</div><button id="repetir" class="secondary hidden">Repetir captura</button>
-</section>
-<p><small>La fotografía permanece únicamente en este navegador durante la prueba. La aprobación de identidad corresponde al supervisor. La detección de rostro no verifica identidad ni garantiza prueba de vida.</small></p>
-</main>
-<script>
-'use strict';
-const PUENTE='https://script.google.com/macros/s/AKfycbyvsvbxcHy7UDTe4r3WMlE1bSIoI4G1h8TCSvzv6nwUHAULreri-RYUvoYQzKYpCdNh/exec';
-const $=id=>document.getElementById(id);
-let stream=null,detector=null,activo=false,ocupado=false,estableDesde=0,ultimaRevision=0,token=0,preparacionHasta=0;
-const ESPERA_MS=4000, PREPARACION_MS=8000;
-function mensaje(t,bueno=false){$('mensaje').textContent=t;$('mensaje').className='notice status '+(bueno?'ok':'warn');$('indicacion').textContent=t;}
-function detener(){activo=false;token++;estableDesde=0;ocupado=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}$('video').srcObject=null;$('ovalo').classList.remove('good');$('contador').classList.add('hidden');$('camara').classList.add('hidden');}
-async function consultar(){detener();$('captura').classList.add('hidden');$('foto').style.display='none';$('repetir').classList.add('hidden');const dni=$('dni').value.trim();if(!/^\d{8}$/.test(dni)){$('estado').textContent='Ingresa un DNI válido de 8 dígitos.';return;}$('consultar').disabled=true;$('estado').textContent='Consultando estado…';try{const u=new URL(PUENTE);u.searchParams.set('accion','estado_facial');u.searchParams.set('dni',dni);const r=await fetch(u.toString());if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();if(!d.ok){$('estado').textContent=d.mensaje||'No disponible.';return;}$('estado').textContent='Estado facial: '+d.estado+'.';if(d.estado!=='APROBADO')$('captura').classList.remove('hidden');}catch(e){$('estado').textContent='No se pudo consultar el estado: '+e.message+'.';}}
-function luminosidad(video){const c=document.createElement('canvas');c.width=40;c.height=40;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(video,0,0,40,40);const pix=ctx.getImageData(0,0,40,40).data;let suma=0;for(let i=0;i<pix.length;i+=16)suma+=(pix[i]*.2126+pix[i+1]*.7152+pix[i+2]*.0722);return suma/(pix.length/16);}
-function evaluar(results){if(!activo)return;const ahoraPreparacion=performance.now();if(ahoraPreparacion<preparacionHasta){estableDesde=0;$('contador').classList.add('hidden');$('ovalo').classList.remove('good');mensaje('Acomódate dentro del óvalo. La verificación comenzará en '+Math.ceil((preparacionHasta-ahoraPreparacion)/1000)+' segundos.');return;}const det=results&&results.detections||[];let texto='';if(det.length===0)texto='No se detecta un rostro. Mira hacia la cámara.';else if(det.length!==1)texto='Debe aparecer una sola persona en la imagen.';else{const b=det[0].boundingBox||{};const x=Number(b.xCenter),y=Number(b.yCenter),w=Number(b.width),h=Number(b.height);if(![x,y,w,h].every(Number.isFinite))texto='Ajusta tu posición frente a la cámara.';else if(Math.abs(x-.5)>.14||Math.abs(y-.46)>.17)texto='Centra tu rostro dentro del óvalo.';else if(w<.22||h<.24)texto='Acércate un poco a la cámara.';else if(w>.68||h>.76)texto='Aléjate un poco de la cámara.';else{const luz=luminosidad($('video'));if(luz<55)texto='Necesitas más iluminación frontal.';else if(luz>225)texto='Demasiada luz. Evita el contraluz.';}}
-const valido=!texto;const ahora=performance.now();$('ovalo').classList.toggle('good',valido);if(!valido){estableDesde=0;$('contador').classList.add('hidden');mensaje(texto);return;}if(!estableDesde)estableDesde=ahora;const restante=Math.max(0,Math.ceil((ESPERA_MS-(ahora-estableDesde))/1000));$('contador').classList.remove('hidden');$('contador').textContent=restante||'✓';mensaje('Rostro centrado. Mantente quieto: '+restante+'…',true);if(ahora-estableDesde>=ESPERA_MS)capturar();}
-async function ciclo(miToken){if(!activo||miToken!==token)return;const ahora=performance.now();if(!ocupado&&ahora-ultimaRevision>=180){ocupado=true;ultimaRevision=ahora;try{await detector.send({image:$('video')});}catch(e){detener();mensaje('Error del detector facial: '+(e&&e.message?e.message:String(e))+'. Vuelve a activar la cámara.');return;}finally{ocupado=false;}}if(activo&&miToken===token)requestAnimationFrame(()=>ciclo(miToken));}
-async function activar(){detener();$('foto').style.display='none';$('repetir').classList.add('hidden');if(!navigator.mediaDevices?.getUserMedia){mensaje('Este navegador no permite usar la cámara.');return;}if(typeof FaceDetection==='undefined'){mensaje('No se pudo cargar el detector facial. Revisa Internet y vuelve a intentar. No se capturará ninguna fotografía.');return;}try{mensaje('Iniciando detector facial…');detector=new FaceDetection({locateFile:file=>'https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4/'+file});detector.setOptions({modelSelection:0,minDetectionConfidence:.72});detector.onResults(evaluar);stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:640},height:{ideal:800}}});$('video').srcObject=stream;await $('video').play();$('camara').classList.remove('hidden');activo=true;preparacionHasta=performance.now()+PREPARACION_MS;const miToken=++token;$('camara').scrollIntoView({behavior:'smooth',block:'center'});mensaje('Acomódate dentro del óvalo. Tienes 8 segundos antes de iniciar la verificación.');requestAnimationFrame(()=>ciclo(miToken));}catch(e){detener();mensaje('No se pudo iniciar la cámara o el detector: '+e.message);}}
-function capturar(){if(!activo)return;const v=$('video'),c=$('foto');c.width=v.videoWidth||640;c.height=v.videoHeight||480;c.getContext('2d').drawImage(v,0,0,c.width,c.height);detener();c.style.display='block';mensaje('Fotografía capturada tras comprobar encuadre, presencia de un rostro e iluminación. No se ha enviado a Drive.',true);$('repetir').classList.remove('hidden');}
-$('consultar').addEventListener('click',consultar);$('activar').addEventListener('click',activar);$('repetir').addEventListener('click',activar);window.addEventListener('pagehide',detener);
+
+<script
+  defer
+  src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js">
 </script>
-</body></html>
+
+</head>
+
+<body>
+
+<div class="contenedor">
+
+  <h2>Asistencia QR · Facial V3.0</h2>
+
+  <p class="subtitulo">
+    Pruebas de captura y comparación facial con el motor ya validado
+  </p>
+
+  <div class="seccion">
+    <h3>Consulta de estado facial V3.4</h3>
+    <label for="dniV3">DNI del trabajador</label>
+    <input id="dniV3" type="text" inputmode="numeric" maxlength="8" placeholder="8 dígitos" style="width:100%;box-sizing:border-box;padding:12px;font-size:16px;border:1px solid #aebdce;border-radius:8px">
+    <button type="button" id="consultarV3" onclick="consultarEstadoV3()">Consultar estado facial</button>
+    <div class="estado" id="estadoV3" role="status">Ingresa el DNI para consultar el estado.</div>
+  </div>
+  <div class="seccion">
+    <h3>1. Fotografía de referencia (solo comparación local de prueba)</h3>
+
+    <input
+      type="file"
+      id="archivoReferencia"
+      accept="image/*"
+      onchange="seleccionarReferencia(event)"
+    >
+
+    <p class="subtitulo">
+      Selecciona una fotografía frontal
+      para utilizarla como referencia.
+    </p>
+
+  </div>
+
+  <div class="seccion">
+
+    <h3>2. Cámara frontal</h3>
+
+    <div class="camara">
+
+      <video
+        id="video"
+        autoplay
+        muted
+        playsinline>
+      </video>
+
+      <div id="guia" class="guia"></div>
+
+    </div>
+
+    <button
+      id="btnIniciar"
+      onclick="iniciarSistema()">
+      Iniciar reconocimiento automático
+    </button>
+
+    <button
+      id="btnRepetir"
+      class="verde"
+      onclick="reiniciarCaptura()"
+      style="display:none">
+      Repetir verificación
+    </button>
+
+  </div>
+
+  <div id="contingencia" class="seccion" style="display:none">
+    <h3>Modo de contingencia</h3>
+    <p class="subtitulo" id="motivoContingencia"></p>
+    <button id="btnManual" onclick="capturaManual()" class="verde">Tomar fotografía manualmente</button>
+    <input id="camaraAlternativa" type="file" accept="image/*" capture="user" style="display:none" onchange="recibirFotoAlternativa(event)">
+    <button id="btnAlternativa" onclick="abrirCamaraAlternativa()" style="display:none">Abrir cámara del teléfono</button>
+    <button id="btnPendiente" onclick="generarConstancia()" style="background:#59677b">Generar constancia pendiente de revisión</button>
+  </div>
+
+  <div id="estado" class="estado">
+    Selecciona una fotografía de referencia
+    y luego inicia el reconocimiento.
+  </div>
+
+  <div id="resultado" style="display:none">
+
+    <div class="fotos">
+
+      <div>
+        <p>Referencia</p>
+        <img
+          id="imagenReferencia"
+          alt="Fotografía de referencia">
+      </div>
+
+      <div>
+        <p>Captura obtenida</p>
+        <img
+          id="imagenCaptura"
+          alt="Fotografía capturada">
+      </div>
+
+    </div>
+
+  </div>
+
+  <p class="nota">
+    Motor de captura y comparación reutilizado del prototipo V2.2.5, en pantalla V3.0 de pruebas.
+    Los descriptores faciales se procesan
+    localmente en el navegador.
+    La fotografía de referencia se selecciona manualmente en este dispositivo; no se descarga desde el Drive privado. No se almacenan fotografías en
+    Google Sheets ni Drive.
+    No incluye detección de presencia real.
+    No autoriza ni registra asistencias. Las constancias de prueba no se envían al empleador.
+  </p>
+
+</div>
+
+<canvas id="canvas" style="display:none"></canvas>
+
+<script>
+const PUENTE_V3 = 'https://script.google.com/macros/s/AKfycbyvsvbxcHy7UDTe4r3WMlE1bSIoI4G1h8TCSvzv6nwUHAULreri-RYUvoYQzKYpCdNh/exec';
+async function consultarEstadoV3() {
+  const dni = document.getElementById('dniV3').value.trim();
+  const salida = document.getElementById('estadoV3');
+  if (!/^\d{8}$/.test(dni)) { salida.textContent = 'Introduce un DNI válido de 8 dígitos.'; return; }
+  const boton = document.getElementById('consultarV3');
+  boton.disabled = true;
+  salida.textContent = 'Consultando estado facial...';
+  try {
+    const respuesta = await fetch(PUENTE_V3 + '?accion=estado_facial&dni=' + encodeURIComponent(dni), {redirect:'follow'});
+    if (!respuesta.ok) throw new Error('Respuesta HTTP ' + respuesta.status);
+    const datos = await respuesta.json();
+    salida.textContent = datos.ok ? 'Estado facial: ' + datos.estado + '. La comparación de abajo es una prueba local.' : (datos.mensaje || 'No se pudo consultar el estado.');
+  } catch (error) {
+    salida.textContent = 'No fue posible consultar el estado. ' + error.message;
+  } finally { boton.disabled = false; }
+}
+</script>
+<script>
+
+const RUTA_MODELOS =
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights";
+
+const TIEMPO_ESTABLE = 2000;
+const INTERVALO_ANALISIS = 350;
+const UMBRAL_EXPERIMENTAL = 0.45;
+const MAX_INTENTOS = 3;
+const DURACION_INTENTO_MS = 9000;
+let numeroIntento = 0;
+let inicioIntento = 0;
+let modoContingencia = false;
+let fotoContingencia = false;
+let motivoFallo = "";
+
+let streamCamara = null;
+let modelosListos = false;
+let referenciaLista = false;
+let descriptorReferencia = null;
+let ejecutando = false;
+let capturado = false;
+let inicioEstabilidad = null;
+let ultimoAnalisis = 0;
+let generacion = 0;
+let archivoReferencia = null;
+
+function mostrarEstado(mensaje) {
+  document.getElementById("estado").textContent =
+    mensaje;
+}
+
+function actualizarGuia(correcta) {
+  document.getElementById("guia").classList.toggle(
+    "correcta",
+    correcta
+  );
+}
+
+function esperar(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function leerImagen(archivo) {
+  return new Promise((resolve, reject) => {
+
+    const imagen = new Image();
+    const lector = new FileReader();
+
+    lector.onload = () => {
+
+      imagen.onload = () => {
+        resolve(imagen);
+      };
+
+      imagen.onerror = () => {
+        reject(
+          new Error("No se pudo abrir la imagen.")
+        );
+      };
+
+      imagen.src = lector.result;
+    };
+
+    lector.onerror = () => {
+      reject(
+        new Error("No se pudo leer el archivo.")
+      );
+    };
+
+    lector.readAsDataURL(archivo);
+
+  });
+}
+
+function seleccionarReferencia(evento) {
+
+  generacion++;
+  detenerCamara();
+
+  referenciaLista = false;
+  descriptorReferencia = null;
+  capturado = false;
+  ocultarContingencia();
+
+  archivoReferencia =
+    evento.target.files[0] || null;
+
+  document.getElementById("btnIniciar").disabled =
+    false;
+
+  document.getElementById("btnRepetir").style.display =
+    "none";
+
+  document.getElementById("resultado").style.display =
+    "none";
+
+  document.getElementById("imagenReferencia").removeAttribute(
+    "src"
+  );
+
+  document.getElementById("imagenCaptura").removeAttribute(
+    "src"
+  );
+
+  if (!archivoReferencia) {
+    mostrarEstado(
+      "Selecciona una fotografía de referencia."
+    );
+    return;
+  }
+
+  if (!archivoReferencia.type.startsWith("image/")) {
+
+    archivoReferencia = null;
+
+    mostrarEstado(
+      "El archivo seleccionado debe ser una imagen."
+    );
+
+    return;
+  }
+
+  mostrarEstado(
+    "Fotografía de referencia seleccionada.\n" +
+    "Pulsa Iniciar reconocimiento automático."
+  );
+
+}
+
+async function cargarModelos() {
+
+  if (modelosListos) return;
+
+  if (typeof faceapi === "undefined") {
+    throw new Error(
+      "No se pudo cargar la biblioteca face-api.js."
+    );
+  }
+
+  await Promise.all([
+
+    faceapi.nets.tinyFaceDetector.loadFromUri(
+      RUTA_MODELOS
+    ),
+
+    faceapi.nets.faceLandmark68Net.loadFromUri(
+      RUTA_MODELOS
+    ),
+
+    faceapi.nets.faceRecognitionNet.loadFromUri(
+      RUTA_MODELOS
+    )
+
+  ]);
+
+  modelosListos = true;
+}
+
+function opcionesDetector() {
+
+  return new faceapi.TinyFaceDetectorOptions({
+    inputSize: 416,
+    scoreThreshold: 0.35
+  });
+
+}
+
+function calcularOrientacion(landmarks) {
+
+  const puntos = landmarks.positions;
+
+  const nariz = puntos[30];
+  const ojo1 = puntos[36];
+  const ojo2 = puntos[45];
+
+  const distanciaOjos = Math.hypot(
+    ojo2.x - ojo1.x,
+    ojo2.y - ojo1.y
+  );
+
+  if (distanciaOjos < 1) {
+    return Infinity;
+  }
+
+  const centroX = (ojo1.x + ojo2.x) / 2;
+
+  return Math.abs(
+    nariz.x - centroX
+  ) / distanciaOjos;
+
+}
+
+function comprobarEncuadre(box, ancho, alto) {
+
+  const centroX = box.x + box.width / 2;
+  const centroY = box.y + box.height / 2;
+
+  const desviacionX =
+    Math.abs(centroX - ancho / 2) / ancho;
+
+  const desviacionY =
+    Math.abs(centroY - alto / 2) / alto;
+
+  if (
+    desviacionX > 0.20 ||
+    desviacionY > 0.25
+  ) {
+
+    return {
+      correcto: false,
+      mensaje: "Centra tu rostro en la pantalla."
+    };
+
+  }
+
+  if (box.width < ancho * 0.20) {
+
+    return {
+      correcto: false,
+      mensaje: "Acércate un poco a la cámara."
+    };
+
+  }
+
+  if (box.width > ancho * 0.85) {
+
+    return {
+      correcto: false,
+      mensaje: "Aléjate un poco de la cámara."
+    };
+
+  }
+
+  return {
+    correcto: true
+  };
+
+}
+
+async function prepararReferencia() {
+
+  const imagen = await leerImagen(
+    archivoReferencia
+  );
+
+  const resultados = await faceapi
+    .detectAllFaces(
+      imagen,
+      opcionesDetector()
+    )
+    .withFaceLandmarks()
+    .withFaceDescriptors();
+
+  if (resultados.length !== 1) {
+
+    throw new Error(
+      "La referencia debe contener exactamente " +
+      "un rostro detectable."
+    );
+
+  }
+
+  const orientacion = calcularOrientacion(
+    resultados[0].landmarks
+  );
+
+  if (orientacion > 0.22) {
+
+    throw new Error(
+      "La fotografía de referencia debe " +
+      "mostrar el rostro de frente."
+    );
+
+  }
+
+  descriptorReferencia =
+    resultados[0].descriptor;
+
+  referenciaLista = true;
+
+  document.getElementById(
+    "imagenReferencia"
+  ).src = imagen.src;
+
+}
+
+async function abrirCamara() {
+
+  if (
+    !navigator.mediaDevices ||
+    !navigator.mediaDevices.getUserMedia
+  ) {
+
+    throw new Error(
+      "El navegador no permite abrir la cámara."
+    );
+
+  }
+
+  streamCamara =
+    await navigator.mediaDevices.getUserMedia({
+
+      audio: false,
+
+      video: {
+        facingMode: {
+          ideal: "user"
+        },
+        width: {
+          ideal: 640
+        },
+        height: {
+          ideal: 480
+        }
+      }
+
+    });
+
+  const video =
+    document.getElementById("video");
+
+  video.srcObject = streamCamara;
+
+  await video.play();
+
+}
+
+async function iniciarSistema() {
+
+  if (!archivoReferencia) {
+
+    mostrarEstado(
+      "Primero selecciona una fotografía de referencia."
+    );
+
+    return;
+
+  }
+
+  const miGeneracion = ++generacion;
+
+  detenerCamara();
+
+  capturado = false;
+  ejecutando = false;
+  numeroIntento = 1;
+  inicioIntento = 0;
+  ocultarContingencia();
+
+  inicioEstabilidad = null;
+  ultimoAnalisis = 0;
+
+  actualizarGuia(false);
+
+  document.getElementById(
+    "btnIniciar"
+  ).disabled = true;
+
+  document.getElementById(
+    "btnRepetir"
+  ).style.display = "none";
+
+  document.getElementById(
+    "resultado"
+  ).style.display = "none";
+
+  try {
+
+    mostrarEstado(
+      "Cargando modelos de inteligencia artificial..."
+    );
+
+    await cargarModelos();
+
+    if (miGeneracion !== generacion) return;
+
+    mostrarEstado(
+      "Analizando fotografía de referencia..."
+    );
+
+    await prepararReferencia();
+
+    if (miGeneracion !== generacion) return;
+
+    mostrarEstado(
+      "Abriendo cámara frontal..."
+    );
+
+    await abrirCamara();
+
+    if (miGeneracion !== generacion) {
+
+      detenerCamara();
+      return;
+
+    }
+
+    ejecutando = true;
+    inicioIntento = performance.now();
+
+    mostrarEstado(
+      "Cámara activada.\n" +
+      "Mira directamente hacia la cámara."
+    );
+
+    analizarVideo(miGeneracion);
+
+  } catch (error) {
+
+    detenerCamara();
+
+    if (miGeneracion === generacion) {
+
+      mostrarEstado(
+        "No se pudo iniciar:\n" +
+        error.message
+      );
+
+      habilitarContingencia("No se pudo iniciar el reconocimiento automático: " + error.message);
+      document.getElementById(
+        "btnIniciar"
+      ).disabled = false;
+
+    }
+
+  }
+
+}
+
+/*
+ * V2.2.5
+ * DETECCIÓN FACIAL Y DESCRIPTOR EN VIVO
+ *
+ * Se obtiene el descriptor facial durante
+ * el análisis del video.
+ *
+ * Así evitamos una segunda detección
+ * sobre la fotografía capturada.
+ */
+
+async function analizarVideo(miGeneracion) {
+
+  const video =
+    document.getElementById("video");
+
+  while (
+    ejecutando &&
+    !capturado &&
+    miGeneracion === generacion
+  ) {
+
+    if (
+      performance.now() - ultimoAnalisis <
+      INTERVALO_ANALISIS
+    ) {
+
+      await esperar(100);
+      continue;
+
+    }
+
+    ultimoAnalisis = performance.now();
+    if (performance.now() - inicioIntento >= DURACION_INTENTO_MS) {
+      if (numeroIntento < MAX_INTENTOS) {
+        numeroIntento++;
+        inicioIntento = performance.now();
+        inicioEstabilidad = null;
+        actualizarGuia(false);
+        mostrarEstado("Intento automático " + numeroIntento + " de " + MAX_INTENTOS + ".\nAjusta la iluminación y mira de frente.");
+      } else {
+        habilitarContingencia("Se agotaron los tres intentos de captura automática.");
+        break;
+      }
+    }
+
+    try {
+
+      if (
+        !video.videoWidth ||
+        !video.videoHeight
+      ) {
+
+        await esperar(150);
+        continue;
+
+      }
+
+      const rostros = await faceapi
+        .detectAllFaces(
+          video,
+          opcionesDetector()
+        )
+        .withFaceLandmarks()
+        .withFaceDescriptors();
+
+      if (
+        !ejecutando ||
+        miGeneracion !== generacion
+      ) break;
+
+      if (rostros.length !== 1) {
+
+        inicioEstabilidad = null;
+        actualizarGuia(false);
+
+        mostrarEstado(
+          rostros.length === 0
+            ? "No se detecta un rostro.\nMira a la cámara."
+            : "Se detectaron varios rostros.\n" +
+              "Debe aparecer una sola persona."
+        );
+
+        await esperar(100);
+        continue;
+
+      }
+
+      const rostro = rostros[0];
+
+      const orientacion =
+        calcularOrientacion(
+          rostro.landmarks
+        );
+
+      const encuadre =
+        comprobarEncuadre(
+          rostro.detection.box,
+          video.videoWidth,
+          video.videoHeight
+        );
+
+      if (orientacion > 0.22) {
+
+        inicioEstabilidad = null;
+        actualizarGuia(false);
+
+        mostrarEstado(
+          "Gira tu rostro hacia el frente."
+        );
+
+        await esperar(100);
+        continue;
+
+      }
+
+      if (!encuadre.correcto) {
+
+        inicioEstabilidad = null;
+        actualizarGuia(false);
+
+        mostrarEstado(
+          encuadre.mensaje
+        );
+
+        await esperar(100);
+        continue;
+
+      }
+
+      actualizarGuia(true);
+
+      if (inicioEstabilidad === null) {
+
+        inicioEstabilidad =
+          performance.now();
+
+      }
+
+      const transcurrido =
+        performance.now() -
+        inicioEstabilidad;
+
+      const restante = Math.max(
+        0,
+        (
+          TIEMPO_ESTABLE -
+          transcurrido
+        ) / 1000
+      );
+
+      mostrarEstado(
+        "Rostro frontal detectado.\n" +
+        "Mantente quieto...\n" +
+        "Captura en " +
+        restante.toFixed(1) +
+        " segundos."
+      );
+
+      if (
+        transcurrido >= TIEMPO_ESTABLE
+      ) {
+
+        await capturarYComparar(
+          miGeneracion,
+          rostro.descriptor
+        );
+
+        break;
+
+      }
+
+    } catch (error) {
+
+      inicioEstabilidad = null;
+      actualizarGuia(false);
+
+      mostrarEstado(
+        "Error durante el análisis:\n" +
+        error.message
+      );
+
+      await esperar(500);
+
+    }
+
+    await esperar(100);
+
+  }
+
+}
+
+/*
+ * V2.2.5
+ * CAPTURA AUTOMÁTICA Y COMPARACIÓN
+ *
+ * Recibimos directamente el descriptor
+ * del rostro detectado en vivo.
+ *
+ * No realizamos una segunda detección
+ * facial sobre el canvas.
+ */
+
+async function capturarYComparar(
+  miGeneracion,
+  descriptorCaptura
+) {
+
+  if (
+    capturado ||
+    !streamCamara
+  ) return;
+
+  const video =
+    document.getElementById("video");
+
+  if (
+    !video.videoWidth ||
+    !video.videoHeight
+  ) return;
+
+  capturado = true;
+  ejecutando = false;
+
+  const canvas =
+    document.getElementById("canvas");
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const ctx =
+    canvas.getContext("2d");
+
+  ctx.save();
+
+  ctx.translate(
+    canvas.width,
+    0
+  );
+
+  ctx.scale(-1, 1);
+
+  ctx.drawImage(
+    video,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  ctx.restore();
+
+  document.getElementById(
+    "imagenCaptura"
+  ).src = canvas.toDataURL(
+    "image/jpeg",
+    0.9
+  );
+
+  document.getElementById(
+    "resultado"
+  ).style.display = "block";
+
+  detenerCamara();
+
+  mostrarEstado(
+    "Fotografía capturada automáticamente.\n" +
+    "Comparando identidad facial..."
+  );
+
+  try {
+
+    if (
+      miGeneracion !== generacion
+    ) return;
+
+    if (
+      !referenciaLista ||
+      !descriptorReferencia
+    ) {
+
+      throw new Error(
+        "No hay una referencia facial válida."
+      );
+
+    }
+
+    if (
+      !descriptorCaptura ||
+      descriptorCaptura.length !== 128
+    ) {
+
+      throw new Error(
+        "No se obtuvo un descriptor facial válido " +
+        "durante la captura."
+      );
+
+    }
+
+    const distancia =
+      faceapi.euclideanDistance(
+        descriptorReferencia,
+        descriptorCaptura
+      );
+
+    const interpretacion =
+      distancia < UMBRAL_EXPERIMENTAL
+        ? "SIMILITUD COMPATIBLE CON COINCIDENCIA"
+        : "SIMILITUD INSUFICIENTE O INCIERTA";
+
+    mostrarEstado(
+      "COMPARACIÓN FACIAL COMPLETADA\n\n" +
+
+      "Referencia: rostro detectado\n" +
+      "Captura: rostro detectado en vivo\n\n" +
+
+      "Distancia facial: " +
+      distancia.toFixed(4) +
+
+      "\n\nResultado experimental:\n" +
+      interpretacion +
+
+      "\n\nUmbral ilustrativo: " +
+      UMBRAL_EXPERIMENTAL.toFixed(2) +
+
+      "\n\nNo se ha verificado presencia real." +
+
+      "\nNo se ha autorizado ninguna asistencia."
+    );
+
+  } catch (error) {
+
+    if (
+      miGeneracion === generacion
+    ) {
+
+      mostrarEstado(
+        "COMPARACIÓN NO COMPLETADA\n\n" +
+        error.message
+      );
+
+    }
+
+  } finally {
+
+    if (
+      miGeneracion === generacion
+    ) {
+
+      document.getElementById(
+        "btnRepetir"
+      ).style.display = "block";
+
+    }
+
+  }
+
+}
+
+function reiniciarCaptura() {
+
+  document.getElementById(
+    "btnRepetir"
+  ).style.display = "none";
+
+  iniciarSistema();
+
+}
+
+function detenerCamara() {
+
+  ejecutando = false;
+
+  if (streamCamara) {
+
+    streamCamara.getTracks().forEach(
+      pista => pista.stop()
+    );
+
+  }
+
+  streamCamara = null;
+
+  const video =
+    document.getElementById("video");
+
+  video.pause();
+  video.srcObject = null;
+
+}
+
+// V2.2.5 - Contingencia: nunca equivale a identidad aprobada.
+function ocultarContingencia() {
+  modoContingencia = false;
+  fotoContingencia = false;
+  motivoFallo = "";
+  document.getElementById("contingencia").style.display = "none";
+  document.getElementById("btnAlternativa").style.display = "none";
+  document.getElementById("btnManual").style.display = "block";
+  document.getElementById("camaraAlternativa").value = "";
+}
+
+function habilitarContingencia(motivo) {
+  modoContingencia = true;
+  motivoFallo = motivo;
+  ejecutando = false;
+  inicioEstabilidad = null;
+  actualizarGuia(false);
+  document.getElementById("contingencia").style.display = "block";
+  document.getElementById("motivoContingencia").textContent = motivo +
+    " Puedes intentar una foto manual o generar una constancia de prueba.";
+  if (!streamCamara) {
+    document.getElementById("btnManual").style.display = "none";
+    document.getElementById("btnAlternativa").style.display = "block";
+  }
+  mostrarEstado("CAPTURA AUTOMÁTICA NO COMPLETADA\n" + motivo +
+    "\nModo de contingencia disponible. No se ha autorizado asistencia.");
+}
+
+async function capturaManual() {
+  if (!modoContingencia) return;
+  const video = document.getElementById("video");
+  if (!streamCamara || !video.videoWidth) {
+    document.getElementById("btnAlternativa").style.display = "block";
+    mostrarEstado("La cámara en vivo no está disponible. Usa 'Abrir cámara del teléfono'.");
+    return;
+  }
+  document.getElementById("btnManual").disabled = true;
+  try {
+    // El usuario elige el instante; la identidad se analiza de nuevo en vivo.
+    const rostros = await faceapi.detectAllFaces(video, opcionesDetector())
+      .withFaceLandmarks().withFaceDescriptors();
+    if (rostros.length !== 1) {
+      mostrarEstado("CAPTURA MANUAL NO VALIDADA\nSe requiere exactamente un rostro detectable. " +
+        "Puedes volver a intentar o generar una constancia pendiente.");
+      return;
+    }
+    const encuadre = comprobarEncuadre(rostros[0].detection.box, video.videoWidth, video.videoHeight);
+    if (calcularOrientacion(rostros[0].landmarks) > 0.22 || !encuadre.correcto) {
+      mostrarEstado("CAPTURA MANUAL NO VALIDADA\nMira de frente y centra el rostro. " +
+        "Puedes repetir o generar una constancia pendiente.");
+      return;
+    }
+    fotoContingencia = true;
+    await capturarYComparar(generacion, rostros[0].descriptor);
+  } catch (error) {
+    mostrarEstado("No se pudo analizar la captura manual: " + error.message +
+      "\nPuedes generar una constancia pendiente.");
+  } finally {
+    document.getElementById("btnManual").disabled = false;
+  }
+}
+
+function abrirCamaraAlternativa() {
+  if (!modoContingencia) return;
+  // capture=user solicita cámara, pero ciertos navegadores permiten galería.
+  document.getElementById("camaraAlternativa").click();
+}
+
+async function recibirFotoAlternativa(evento) {
+  if (!modoContingencia) return;
+  const archivo = evento.target.files && evento.target.files[0];
+  if (!archivo || !archivo.type.startsWith("image/")) return;
+  try {
+    const imagen = await leerImagen(archivo);
+    document.getElementById("imagenCaptura").src = imagen.src;
+    document.getElementById("resultado").style.display = "block";
+    fotoContingencia = true;
+    // No puede demostrarse que un archivo provenga de una cámara en vivo.
+    if (modelosListos && descriptorReferencia) {
+      const rostros = await faceapi.detectAllFaces(imagen, opcionesDetector())
+        .withFaceLandmarks().withFaceDescriptors();
+      if (rostros.length === 1) {
+        const distancia = faceapi.euclideanDistance(descriptorReferencia, rostros[0].descriptor);
+        mostrarEstado("FOTOGRAFÍA ALTERNATIVA RECIBIDA\nDistancia facial experimental: " +
+          distancia.toFixed(4) + "\n" +
+          (distancia < UMBRAL_EXPERIMENTAL ? "Similitud compatible" : "Similitud insuficiente o incierta") +
+          "\nOrigen de la imagen no verificable. Requiere revisión; no autoriza asistencia.");
+      } else {
+        mostrarEstado("FOTOGRAFÍA ALTERNATIVA RECIBIDA\nNo se pudo verificar un único rostro. " +
+          "Requiere revisión; no autoriza asistencia.");
+      }
+    } else {
+      mostrarEstado("FOTOGRAFÍA ALTERNATIVA RECIBIDA\nNo fue posible comparar identidad. " +
+        "Requiere revisión; no autoriza asistencia.");
+    }
+  } catch (error) {
+    mostrarEstado("No se pudo procesar la fotografía: " + error.message);
+  }
+}
+
+function generarConstancia() {
+  if (!modoContingencia) return;
+  const fecha = new Date().toLocaleString("es-PE");
+  const identificador = "PRUEBA-" + Date.now().toString(36).toUpperCase();
+  const mensaje = "CONSTANCIA EXPERIMENTAL - PENDIENTE DE REVISIÓN\n" +
+    "Código: " + identificador + "\nFecha del dispositivo: " + fecha +
+    "\nMotivo: " + motivoFallo +
+    "\nFoto alternativa: " + (fotoContingencia ? "Sí" : "No") +
+    "\n\nNO ES UN REGISTRO DE ASISTENCIA. " +
+    "No se ha enviado al empleador ni almacenado en Google Sheets o Drive.";
+  mostrarEstado(mensaje);
+  // Descarga local para pruebas. No es comprobante oficial ni prueba de identidad.
+  const blob = new Blob([mensaje], {type: "text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = identificador + ".txt";
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+window.addEventListener(
+  "pagehide",
+  () => {
+
+    generacion++;
+    detenerCamara();
+
+  }
+);
+
+</script>
+
+</body>
+</html>
