@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Asistencia Facial V3.9 - Comparación facial piloto</title>
+<title>Asistencia Facial V3.0</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#eef3f9;font-family:Arial,sans-serif;color:#173456;padding:16px}.app{max-width:470px;margin:20px auto;background:#fff;padding:22px;border-radius:17px;box-shadow:0 6px 24px #16375c15}h1{text-align:center;font-size:23px;margin:5px 0}.sub{text-align:center;color:#62768c;font-size:14px}.panel{border:1px solid #d5e0ed;border-radius:12px;padding:16px;margin-top:16px}.info{padding:13px;background:#eaf2fb;border-radius:9px;margin-top:14px;white-space:pre-line;line-height:1.5;font-size:14px}.camera{position:relative;background:#172331;border-radius:12px;overflow:hidden;margin-top:12px;min-height:230px;display:flex;align-items:center;justify-content:center}.camera video{width:100%;display:block;transform:scaleX(-1)}.oval{position:absolute;left:19%;top:12%;width:62%;height:76%;border:3px dashed #ffd84d;border-radius:50%;pointer-events:none}.oval.ok{border-color:#33d18b}button{display:block;width:100%;background:#176ab3;color:#fff;border:0;border-radius:9px;padding:14px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:12px}button:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#15845f}.muted{background:#65758a}.hidden{display:none!important}.result{width:100%;border-radius:10px;margin-top:12px}.error{background:#fff0ef;color:#902a26}.success{background:#e6f6ed;color:#155d3d}small{display:block;color:#64748b;line-height:1.5;margin-top:13px}
 </style>
@@ -11,7 +11,7 @@
 <body>
 <main class="app">
 <h1>Registro de Asistencia V3.0</h1>
-<p class="sub">Captura y comparación facial automática · PILOTO</p>
+<p class="sub">Captura facial automática · entorno piloto</p>
 <section class="panel"><strong id="trabajador">Validando DNI...</strong><div class="info" id="estado">Consultando el estado facial...</div></section>
 <section class="panel hidden" id="captura">
 <strong>Fotografía de marcación</strong>
@@ -20,10 +20,10 @@
 <button id="iniciar" type="button">Iniciar captura automática</button>
 <img id="foto" class="result hidden" alt="Fotografía de evidencia">
 <button id="repetir" class="muted hidden" type="button">Repetir fotografía</button>
-<button id="registrar" class="secondary hidden" type="button">Registrar asistencia de emergencia</button>
+<button id="registrar" class="secondary hidden" type="button">Registrar asistencia real</button>
 <div class="info hidden" id="resultado" role="status"></div>
 </section>
-<small>V3.9 PILOTO: comparación facial local, no validación biométrica confiable del servidor. La referencia aprobada se transmite al navegador del DNI piloto: no usar con empleados reales ni en producción. Las marcaciones quedan sujetas a revisión.</small>
+<small>La asistencia solo se confirma después de recibir respuesta del servidor. Una fotografía no significa por sí sola que la identidad esté verificada.</small>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
@@ -31,95 +31,124 @@
 const $=id=>document.getElementById(id);
 const PUENTE='https://script.google.com/macros/s/AKfycbyvsvbxcHy7UDTe4r3WMlE1bSIoI4G1h8TCSvzv6nwUHAULreri-RYUvoYQzKYpCdNh/exec';
 const MODELOS='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
-const UMBRAL=0.48; // Valor experimental, NO homologado ni garantía de identidad.
-let dni='',estado='',stream=null,activo=false,comprobando=false,modeloListo=false;
-let fotoBase64='',enviando=false,intentos=0,referencia=null,finalizado=false;
-function aviso(s){$('mensajeCamara').textContent=s;}
-function resultado(s,error=false){const e=$('resultado');e.classList.remove('hidden');e.classList.toggle('error',error);e.classList.toggle('success',!error);e.textContent=s;}
-function detener(){activo=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}$('video').srcObject=null;}
-function dormir(ms){return new Promise(r=>setTimeout(r,ms));}
-async function obtenerJSON(accion){const u=new URL(PUENTE);u.searchParams.set('accion',accion);u.searchParams.set('dni',dni);u.searchParams.set('_',Date.now());const c=new AbortController(),timer=setTimeout(()=>c.abort(),15000);try{const r=await fetch(u,{cache:'no-store',signal:c.signal});if(!r.ok)throw Error('Servidor no disponible');return await r.json();}finally{clearTimeout(timer);}}
-async function cargarModelos(){if(modeloListo)return;if(typeof faceapi==='undefined')throw Error('No se pudo cargar face-api.js');await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODELOS),faceapi.nets.faceLandmark68Net.loadFromUri(MODELOS),faceapi.nets.faceRecognitionNet.loadFromUri(MODELOS)]);modeloListo=true;}
-const opciones=()=>new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:.55});
-async function imagenReferencia(data){return await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(Error('No se pudo decodificar referencia'));i.src=data;});}
-async function iniciar(){
- if(finalizado||enviando)return;
- detener();$('iniciar').disabled=true;$('iniciar').classList.add('hidden');$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');$('foto').classList.add('hidden');$('oval').classList.remove('ok');
+const ESTADOS=['APROBADO','PENDIENTE'];
+let dni='',estado='',stream=null,intervalo=null,activo=false,comprobando=false,modeloListo=false,estableDesde=0,fotoBase64='',enviando=false;
+function aviso(t){$('mensajeCamara').textContent=t;}
+function detener(){activo=false;if(intervalo){clearInterval(intervalo);intervalo=null;}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}$('video').srcObject=null;}
+function resultado(t,error=false){const el=$('resultado');el.classList.remove('hidden');el.classList.toggle('error',error);el.classList.toggle('success',!error);el.textContent=t;}
+async function consultar(){
+ const q=new URLSearchParams(location.search);dni=String(q.get('dni')||'').trim();
+ if(!/^\d{8}$/.test(dni)){$('estado').textContent='Falta un DNI válido. Regrese a la primera pantalla de acceso.';return;}
+ $('trabajador').textContent='DNI: '+dni;
  try{
-  aviso('Cargando modelos de reconocimiento facial...');await cargarModelos();
-  if(estado==='APROBADO'&&!referencia){
-   const d=await obtenerJSON('referencia_piloto_v39');
-   if(!d.ok||!d.imagenBase64)throw Error('Referencia no disponible. No se puede validar identidad.');
-   const img=await imagenReferencia(d.imagenBase64);
-   const f=await faceapi.detectSingleFace(img,opciones()).withFaceLandmarks().withFaceDescriptor();
-   if(!f)throw Error('La referencia aprobada no contiene un rostro procesable. Solicita nuevo enrolamiento.');
-   referencia=f.descriptor;
+  const url=new URL(PUENTE);url.searchParams.set('accion','estado_facial');url.searchParams.set('dni',dni);
+  const controlador=new AbortController(),tiempo=setTimeout(()=>controlador.abort(),15000);
+  let r;try{r=await fetch(url,{cache:'no-store',signal:controlador.signal});}finally{clearTimeout(tiempo);}
+  if(!r.ok)throw new Error('No se pudo consultar el estado.');
+  const d=await r.json();if(!d.ok||!ESTADOS.includes(d.estado)){
+   $('estado').textContent=d.estado==='SIN_ENROLAR'||d.estado==='RECHAZADO'?'Debe completar el enrolamiento desde la primera pantalla.':'No se puede continuar: '+(d.mensaje||'Estado no válido.');return;
   }
-  aviso('Solicitando cámara frontal...');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});$('video').srcObject=stream;await $('video').play();
-  activo=true;aviso('Centre un rostro. La foto se tomará inmediatamente, sin temporizador.');
-  ciclo();
- }catch(e){detener();aviso('No se inició: '+(e.message||e)+'. No se descontaron intentos.');$('iniciar').disabled=false;$('iniciar').classList.remove('hidden');}
+  estado=d.estado;
+  $('estado').textContent=estado==='APROBADO'?'Enrolamiento aprobado. Capturaremos evidencia para la marcación. La comparación biométrica aún está pendiente de integración.':'Enrolamiento pendiente. La marcación quedará sujeta a revisión del supervisor.';
+  $('captura').classList.remove('hidden');
+ }catch(e){ $('estado').textContent='No se pudo validar el estado: '+(e.message||e); }
 }
-async function ciclo(){
- while(activo&&!finalizado){
-  if(comprobando){await dormir(150);continue;}comprobando=true;
-  try{
-   const v=$('video');if(!v.videoWidth){await dormir(200);continue;}
-   const detecciones=await faceapi.detectAllFaces(v,opciones());if(!activo)break;
-   if(detecciones.length!==1){$('oval').classList.remove('ok');aviso(detecciones.length?'Debe aparecer una sola persona.':'Coloque el rostro frente a la cámara.');await dormir(300);continue;}
-   const b=detecciones[0].box,cx=b.x+b.width/2,cy=b.y+b.height/2;
-   const centrado=Math.abs(cx-v.videoWidth/2)<v.videoWidth*.18&&Math.abs(cy-v.videoHeight/2)<v.videoHeight*.19;
-   const tamano=b.width>v.videoWidth*.19&&b.width<v.videoWidth*.8;
-   if(!centrado||!tamano){$('oval').classList.remove('ok');aviso('Centre el rostro y ajuste la distancia.');await dormir(300);continue;}
-   $('oval').classList.add('ok');
-   const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
-   const x=c.getContext('2d');x.translate(c.width,0);x.scale(-1,1);x.drawImage(v,0,0);
-   fotoBase64=c.toDataURL('image/jpeg',.78);$('foto').src=fotoBase64;$('foto').classList.remove('hidden');
-   // El descriptor se obtiene del fotograma capturado, no de otro fotograma posterior.
-   detener();aviso('Rostro capturado. Comparando identidad...');
-   if(estado!=='APROBADO'){resultado('Enrolamiento pendiente. No existe referencia aprobada para comparar; solicita revisión del supervisor.',true);return;}
-   const f=await faceapi.detectSingleFace(c,opciones()).withFaceLandmarks().withFaceDescriptor();
-   if(!f){aviso('Imagen borrosa o incompleta. Repita la captura; no cuenta como fallo de identidad.');$('repetir').classList.remove('hidden');return;}
-   const distancia=faceapi.euclideanDistance(f.descriptor,referencia);
-   if(distancia<=UMBRAL){aviso('Coincidencia local detectada. Solicitando registro automático...');await registrar('NORMAL',distancia);return;}
-   intentos++;aviso('Comparación no coincidente. Intento '+intentos+' de 3.');
-   if(intentos>=3){resultado('Tres comparaciones no coincidentes. Puede solicitar una marcación de emergencia con revisión del supervisor.',true);$('registrar').classList.remove('hidden');}
-   else{$('repetir').textContent='Reintentar comparación ('+(intentos+1)+'/3)';$('repetir').classList.remove('hidden');}
+async function cargarModelo(){if(modeloListo)return;if(typeof faceapi==='undefined')throw new Error('No se pudo cargar el detector facial.');await faceapi.nets.tinyFaceDetector.loadFromUri(MODELOS);modeloListo=true;}
+async function iniciar(){
+ detener();fotoBase64='';estableDesde=0;$('oval').classList.remove('ok');$('foto').classList.add('hidden');$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');$('resultado').classList.add('hidden');$('iniciar').disabled=true;
+ try{
+  aviso('Solicitando cámara frontal...');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});$('video').srcObject=stream;await $('video').play();
+  aviso('Cargando detector facial...');await cargarModelo();activo=true;aviso('Centre un rostro dentro del óvalo y manténgase quieto durante dos segundos.');intervalo=setInterval(revisar,250);
+ }catch(e){detener();aviso('No se pudo iniciar la cámara: '+(e.message||e));$('iniciar').disabled=false;}
+}
+async function revisar(){
+ if(!activo||comprobando||!$('video').videoWidth)return;comprobando=true;
+ try{
+  const v=$('video'),detecciones=await faceapi.detectAllFaces(v,new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:.55}));if(!activo)return;
+  if(detecciones.length!==1){estableDesde=0;$('oval').classList.remove('ok');aviso(detecciones.length?'Debe aparecer una sola persona.':'Coloque su rostro frente a la cámara.');return;}
+  const b=detecciones[0].box,cx=b.x+b.width/2,cy=b.y+b.height/2;
+  const centrado=Math.abs(cx-v.videoWidth/2)<v.videoWidth*.18&&Math.abs(cy-v.videoHeight/2)<v.videoHeight*.19;
+  const tamano=b.width>v.videoWidth*.19&&b.width<v.videoWidth*.8;
+  if(!centrado||!tamano){estableDesde=0;$('oval').classList.remove('ok');aviso('Centre su rostro y ajuste la distancia.');return;}
+  $('oval').classList.add('ok');if(!estableDesde)estableDesde=performance.now();
+  const restante=Math.max(0,2-(performance.now()-estableDesde)/1000);aviso('Rostro detectado. Manténgase quieto: '+restante.toFixed(1)+' s');
+  if(restante<=0){const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;const x=c.getContext('2d');x.translate(c.width,0);x.scale(-1,1);x.drawImage(v,0,0);fotoBase64=c.toDataURL('image/jpeg',.78);$('foto').src=fotoBase64;$('foto').classList.remove('hidden');detener();aviso('Fotografía capturada. Lista para enviar al registro real.');$('iniciar').classList.add('hidden');$('repetir').classList.remove('hidden');$('registrar').classList.remove('hidden');}
+ }catch(e){estableDesde=0;aviso('Error de detección: '+(e.message||e));}finally{comprobando=false;}
+}
+function ubicacion(){return new Promise((resolve,reject)=>{if(!navigator.geolocation){reject(new Error('Este navegador no permite geolocalización.'));return;}navigator.geolocation.getCurrentPosition(p=>resolve({latitud:p.coords.latitude,longitud:p.coords.longitude,precision:p.coords.accuracy}),e=>reject(new Error('Se necesita ubicación GPS para marcar asistencia.')), {enableHighAccuracy:true,timeout:20000,maximumAge:0});});}
+/*
+ * Envio por formulario oculto y consulta posterior de resultado.
+ * No se vuelve a enviar la misma marcacion si la respuesta tarda.
+ * El servidor confirma mediante accion=resultado_asistencia.
+ */
+function identificadorIntento(){
+ const bytes=new Uint8Array(16);
+ if(!window.crypto||!crypto.getRandomValues)throw new Error('Este navegador no permite generar el identificador seguro de la marcación.');
+ crypto.getRandomValues(bytes);
+ return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+}
+function esperar(ms){return new Promise(r=>setTimeout(r,ms));}
+async function consultarResultado(dniConsulta,nonce){
+ const url=new URL(PUENTE);
+ url.searchParams.set('accion','resultado_asistencia');
+ url.searchParams.set('dni',dniConsulta);
+ url.searchParams.set('nonce',nonce);
+ url.searchParams.set('_',String(Date.now()));
+ const res=await fetch(url.toString(),{method:'GET',cache:'no-store',redirect:'follow'});
+ if(!res.ok)throw new Error('No se pudo consultar la confirmación del servidor.');
+ return await res.json();
+}
+async function registrar(){
+ if(enviando||!fotoBase64)return;
+ enviando=true;$('registrar').disabled=true;
+ resultado('Obteniendo ubicación GPS...');
+ let enviado=false,nonce='',iframe=null,form=null;
+ try{
+  const gps=await ubicacion();
+  nonce=identificadorIntento();
+  resultado('Ubicación obtenida. Enviando marcación al servidor...');
+  iframe=document.createElement('iframe');
+  iframe.name='respuesta_v3_'+nonce;
+  iframe.style.display='none';
+  document.body.appendChild(iframe);
+  form=document.createElement('form');
+  form.method='POST';form.action=PUENTE;form.target=iframe.name;form.style.display='none';
+  const datos={accion:'registrarAsistenciaFacialV3',dni:dni,latitud:gps.latitud,longitud:gps.longitud,precision:gps.precision,fotoBase64:fotoBase64,nonce:nonce};
+  Object.keys(datos).forEach(k=>{const i=document.createElement('input');i.name=k;i.value=String(datos[k]);form.appendChild(i);});
+  document.body.appendChild(form);
+  form.submit();enviado=true;
+  resultado('Solicitud enviada. Esperando confirmación del registro real...');
+  let confirmacion=null;
+  for(let intento=0;intento<18;intento++){
+   await esperar(2500);
+   try{
+    const r=await consultarResultado(dni,nonce);
+    if(r.estado==='EN_PROCESO')continue;
+    confirmacion=r;break;
+   }catch(e){ /* La red puede fallar transitoriamente: no reenviar POST. */ }
+  }
+  if(!confirmacion){
+   resultado('No se pudo confirmar el resultado de esta marcación. No vuelvas a pulsar Registrar: solicita al supervisor verificar la hoja Asistencia antes de intentar nuevamente.',true);
    return;
-  }catch(e){detener();aviso('Error técnico: '+(e.message||e)+'. No cuenta como fallo facial.');$('repetir').classList.remove('hidden');return;}
-  finally{comprobando=false;}
+  }
+  if(confirmacion.ok===true){
+   resultado('ASISTENCIA REGISTRADA\n'+(confirmacion.mensaje||'Marcación aceptada.')+'\n'+(confirmacion.mensajeRevisionFacial||'')+'\nEstado facial: NO COMPARADO.');
+   $('registrar').classList.add('hidden');$('repetir').classList.add('hidden');
+  }else{
+   resultado('Marcación no aceptada: '+(confirmacion.mensaje||'Error desconocido.'),true);
+  }
+ }catch(e){
+  resultado((enviado?'No se pudo confirmar la marcación: ':'')+(e.message||String(e)),true);
+ }finally{
+  if(form)form.remove();
+  if(iframe)setTimeout(()=>iframe.remove(),1000);
+  enviando=false;
+  // Si no hay confirmación tras un envío, no permitir un segundo POST inadvertido.
+  if(enviado){$('registrar').disabled=true;}
+  else $('registrar').disabled=false;
  }
 }
-function ubicacion(){return new Promise((resolve,reject)=>{if(!navigator.geolocation)return reject(Error('GPS no disponible'));navigator.geolocation.getCurrentPosition(p=>resolve({latitud:p.coords.latitude,longitud:p.coords.longitude,precision:p.coords.accuracy}),()=>reject(Error('No se pudo obtener ubicación GPS')), {enableHighAccuracy:true,timeout:20000,maximumAge:0});});}
-function nonceNuevo(){const b=new Uint8Array(16);crypto.getRandomValues(b);return Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');}
-async function consultarResultado(nonce){const u=new URL(PUENTE);u.searchParams.set('accion','resultado_asistencia');u.searchParams.set('dni',dni);u.searchParams.set('nonce',nonce);u.searchParams.set('_',Date.now());const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw Error('Consulta fallida');return r.json();}
-async function registrar(tipo,distancia){
- if(enviando||finalizado||!fotoBase64)return;
- enviando=true;$('registrar').disabled=true;$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');
- let enviado=false,form=null,iframe=null;
- try{
-  resultado('Obteniendo ubicación GPS...');const gps=await ubicacion();const nonce=nonceNuevo();
-  iframe=document.createElement('iframe');iframe.name='v39_'+nonce;iframe.style.display='none';document.body.appendChild(iframe);
-  form=document.createElement('form');form.method='POST';form.action=PUENTE;form.target=iframe.name;form.style.display='none';
-  const d={accion:'registrarAsistenciaFacialV3',dni,latitud:gps.latitud,longitud:gps.longitud,precision:gps.precision,fotoBase64,nonce,tipoMarcacion:tipo==='EMERGENCIA'?'EMERGENCIA':'NORMAL',comparacionCliente:tipo==='NORMAL'?'COINCIDE':'FALLIDO',distanciaCliente:Number.isFinite(distancia)?distancia:''};
-  for(const [k,v] of Object.entries(d)){const input=document.createElement('input');input.name=k;input.value=String(v);form.appendChild(input);}document.body.appendChild(form);
-  resultado('Enviando marcación al servidor...');form.submit();enviado=true;finalizado=true;
-  let respuesta=null;for(let i=0;i<18;i++){await dormir(2500);try{const r=await consultarResultado(nonce);if(r.estado==='EN_PROCESO')continue;respuesta=r;break;}catch(e){}}
-  if(!respuesta){resultado('Marcación enviada pero no confirmada. NO vuelva a enviarla. El supervisor debe revisar la hoja Asistencia.',true);return;}
-  if(respuesta.ok){resultado('SOLICITUD REGISTRADA\n'+(respuesta.mensaje||'')+'\n'+(respuesta.mensajeRevisionFacial||'')+'\nIMPORTANTE: verificación biométrica local no autenticada por el servidor.');}
-  else{resultado('Marcación rechazada: '+(respuesta.mensaje||'Error del servidor'),true);}
- }catch(e){resultado('No se completó el registro: '+(e.message||e),true);if(!enviado){finalizado=false;$('repetir').classList.remove('hidden');}}
- finally{if(form)form.remove();if(iframe)setTimeout(()=>iframe.remove(),1000);enviando=false;}
-}
-async function consultar(){
- dni=String(new URLSearchParams(location.search).get('dni')||'').trim();if(!/^\d{8}$/.test(dni)){$('estado').textContent='Falta DNI válido. Regrese a primera pantalla.';return;}
- $('trabajador').textContent='DNI: '+dni;
- try{const d=await obtenerJSON('estado_facial');if(!d.ok||!['APROBADO','PENDIENTE'].includes(d.estado)){$('estado').textContent='No se puede continuar: '+(d.mensaje||d.estado);return;}
- estado=d.estado;$('estado').textContent=estado==='APROBADO'?'Referencia aprobada. Comparación facial local de piloto; registro automático sujeto a revisión.':'Enrolamiento pendiente; no se permite afirmar identidad verificada.';
- $('captura').classList.remove('hidden');await iniciar();
- }catch(e){$('estado').textContent='Error de consulta: '+(e.message||e);}
-}
-$('iniciar').onclick=iniciar;$('repetir').onclick=iniciar;$('registrar').onclick=()=>registrar('EMERGENCIA',NaN);window.addEventListener('pagehide',detener);consultar();
+$('iniciar').onclick=iniciar;$('repetir').onclick=iniciar;$('registrar').onclick=registrar;window.addEventListener('pagehide',detener);consultar();
 </script>
 </body>
 </html>
