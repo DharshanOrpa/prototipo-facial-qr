@@ -10,7 +10,7 @@
 </head>
 <body>
 <main class="app">
-<h1>Registro de Asistencia V3.9</h1>
+<h1>Registro de Asistencia V3.9.3</h1>
 <p class="sub">Captura y comparación facial automática · PILOTO</p>
 <section class="panel"><strong id="trabajador">Validando DNI...</strong><div class="info" id="estado">Consultando el estado facial...</div></section>
 <section class="panel hidden" id="captura">
@@ -20,10 +20,10 @@
 <button id="iniciar" type="button">Iniciar captura automática</button>
 <img id="foto" class="result hidden" alt="Fotografía de evidencia">
 <button id="repetir" class="muted hidden" type="button">Repetir fotografía</button>
-<button id="registrar" class="secondary hidden" type="button">Solicitar marcación de emergencia (revisión)</button>
+<button id="registrar" class="secondary hidden" type="button">Registrar asistencia de emergencia</button>
 <div class="info hidden" id="resultado" role="status"></div>
 </section>
-<small>V3.9 PILOTO: comparación facial local, no validación biométrica confiable del servidor. La referencia aprobada se transmite al navegador del DNI piloto: no usar con empleados reales ni en producción. Las marcaciones quedan sujetas a revisión.</small>
+<small>V3.9 PILOTO: comparación facial local, no validación biométrica confiable del servidor. La referencia aprobada se transmite al navegador por DNI; este piloto no autentica el acceso a fotografías. No usar en producción. Las marcaciones quedan sujetas a revisión.</small>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
@@ -34,6 +34,7 @@ const MODELOS='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/
 const UMBRAL=0.48; // Valor experimental, NO homologado ni garantía de identidad.
 let dni='',estado='',stream=null,activo=false,comprobando=false,modeloListo=false;
 let fotoBase64='',enviando=false,intentos=0,referencia=null,finalizado=false;
+let estableDesde=0,ultimoCentro=null;
 function aviso(s){$('mensajeCamara').textContent=s;}
 function resultado(s,error=false){const e=$('resultado');e.classList.remove('hidden');e.classList.toggle('error',error);e.classList.toggle('success',!error);e.textContent=s;}
 function detener(){activo=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}$('video').srcObject=null;}
@@ -56,7 +57,7 @@ async function iniciar(){
    referencia=f.descriptor;
   }
   aviso('Solicitando cámara frontal...');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});$('video').srcObject=stream;await $('video').play();
-  activo=true;aviso('Centre un rostro. La foto se tomará inmediatamente, sin temporizador.');
+  activo=true;estableDesde=0;ultimoCentro=null;aviso('Centre un solo rostro dentro del óvalo y manténgalo estable durante 2 segundos.');
   ciclo();
  }catch(e){detener();aviso('No se inició: '+(e.message||e)+'. No se descontaron intentos.');$('iniciar').disabled=false;$('iniciar').classList.remove('hidden');}
 }
@@ -66,12 +67,21 @@ async function ciclo(){
   try{
    const v=$('video');if(!v.videoWidth){await dormir(200);continue;}
    const detecciones=await faceapi.detectAllFaces(v,opciones());if(!activo)break;
-   if(detecciones.length!==1){$('oval').classList.remove('ok');aviso(detecciones.length?'Debe aparecer una sola persona.':'Coloque el rostro frente a la cámara.');await dormir(300);continue;}
+   if(detecciones.length!==1){estableDesde=0;ultimoCentro=null;$('oval').classList.remove('ok');aviso(detecciones.length?'Debe aparecer una sola persona.':'Coloque el rostro frente a la cámara.');await dormir(300);continue;}
    const b=detecciones[0].box,cx=b.x+b.width/2,cy=b.y+b.height/2;
    const centrado=Math.abs(cx-v.videoWidth/2)<v.videoWidth*.18&&Math.abs(cy-v.videoHeight/2)<v.videoHeight*.19;
    const tamano=b.width>v.videoWidth*.19&&b.width<v.videoWidth*.8;
-   if(!centrado||!tamano){$('oval').classList.remove('ok');aviso('Centre el rostro y ajuste la distancia.');await dormir(300);continue;}
+   if(!centrado||!tamano){estableDesde=0;ultimoCentro=null;$('oval').classList.remove('ok');aviso('Centre el rostro y ajuste la distancia.');await dormir(300);continue;}
+   // El rostro debe permanecer centrado y estable durante 2 segundos CONTINUOS.
+   // No se captura por un temporizador independiente de la detección.
+   const centro={x:cx/v.videoWidth,y:cy/v.videoHeight};
+   const movio=ultimoCentro && Math.hypot(centro.x-ultimoCentro.x,centro.y-ultimoCentro.y)>.045;
+   if(movio)estableDesde=0;
+   ultimoCentro=centro;
+   if(!estableDesde)estableDesde=performance.now();
+   const espera=Math.max(0,2-(performance.now()-estableDesde)/1000);
    $('oval').classList.add('ok');
+   if(espera>0){aviso('Rostro detectado y centrado. Manténgase quieto: '+espera.toFixed(1)+' s');await dormir(180);continue;}
    const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
    const x=c.getContext('2d');x.translate(c.width,0);x.scale(-1,1);x.drawImage(v,0,0);
    fotoBase64=c.toDataURL('image/jpeg',.78);$('foto').src=fotoBase64;$('foto').classList.remove('hidden');
@@ -95,8 +105,6 @@ function nonceNuevo(){const b=new Uint8Array(16);crypto.getRandomValues(b);retur
 async function consultarResultado(nonce){const u=new URL(PUENTE);u.searchParams.set('accion','resultado_asistencia');u.searchParams.set('dni',dni);u.searchParams.set('nonce',nonce);u.searchParams.set('_',Date.now());const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw Error('Consulta fallida');return r.json();}
 async function registrar(tipo,distancia){
  if(enviando||finalizado||!fotoBase64)return;
- if(tipo==='EMERGENCIA' && (estado!=='APROBADO'||intentos<3))return;
- if(tipo==='NORMAL' && (estado!=='APROBADO'||!Number.isFinite(distancia)||distancia>UMBRAL))return;
  enviando=true;$('registrar').disabled=true;$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');
  let enviado=false,form=null,iframe=null;
  try{
@@ -116,8 +124,8 @@ async function registrar(tipo,distancia){
 async function consultar(){
  dni=String(new URLSearchParams(location.search).get('dni')||'').trim();if(!/^\d{8}$/.test(dni)){$('estado').textContent='Falta DNI válido. Regrese a primera pantalla.';return;}
  $('trabajador').textContent='DNI: '+dni;
- try{const d=await obtenerJSON('estado_facial');if(!d.ok||!['APROBADO','PENDIENTE'].includes(d.estado)){$('estado').textContent='No se puede continuar: '+(d.mensaje||d.estado);return;}
- estado=d.estado;$('estado').textContent=estado==='APROBADO'?'Referencia aprobada. Comparación facial local de piloto; registro automático sujeto a revisión.':'Enrolamiento pendiente; no se permite afirmar identidad verificada.';
+ try{const d=await obtenerJSON('estado_facial');if(!d.ok||d.estado!=='APROBADO'){$('estado').textContent='No se puede continuar: '+(d.mensaje||d.estado);return;}
+ estado=d.estado;$('estado').textContent=estado==='APROBADO'?'Referencia aprobada. Comparación facial local de piloto; registro automático sujeto a revisión.':'Enrolamiento pendiente. No se permite registrar asistencia.';
  $('captura').classList.remove('hidden');await iniciar();
  }catch(e){$('estado').textContent='Error de consulta: '+(e.message||e);}
 }
