@@ -140,8 +140,9 @@ async function registrar(tipo,distancia,horaManual='',confirmacionManual=false){
   resultado('Enviando marcación al servidor...');form.submit();enviado=true;
   let respuesta=null;for(let i=0;i<18;i++){await dormir(2500);try{const r=await consultarResultado(nonce);if(r.estado==='EN_PROCESO')continue;respuesta=r;break;}catch(e){}}
   if(!respuesta){finalizado=true;resultado('Marcación enviada pero no confirmada. NO vuelva a enviarla. El supervisor debe revisar la hoja Asistencia.',true);return;}
-  if(respuesta.ok){resultado('SOLICITUD REGISTRADA\n'+(respuesta.mensaje||'')+'\n'+(respuesta.mensajeRevisionFacial||'')+'\nIMPORTANTE: verificación biométrica local no autenticada por el servidor.');}
-  else{resultado('Marcación rechazada: '+(respuesta.mensaje||'Error del servidor'),true);}
+  if(respuesta.ok){finalizado=true;$('regularizacion').classList.add('hidden');confirmacionExitosa(respuesta);}
+  else if(respuesta.requiereIngresoManual){finalizado=false;mostrarRegularizacion(respuesta);}
+  else{finalizado=true;resultado('Marcación rechazada: '+(respuesta.mensaje||'Error del servidor'),true);}
  }catch(e){resultado('No se completó el registro: '+(e.message||e),true);if(!enviado){finalizado=false;$('repetir').classList.remove('hidden');}}
  finally{if(form)form.remove();if(iframe)setTimeout(()=>iframe.remove(),1000);enviando=false;}
 }
