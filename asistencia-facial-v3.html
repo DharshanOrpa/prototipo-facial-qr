@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Asistencia Facial V3.9 - Comparación facial piloto</title>
+<title>Asistencia Facial V3.10 - Piloto</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#eef3f9;font-family:Arial,sans-serif;color:#173456;padding:16px}.app{max-width:470px;margin:20px auto;background:#fff;padding:22px;border-radius:17px;box-shadow:0 6px 24px #16375c15}h1{text-align:center;font-size:23px;margin:5px 0}.sub{text-align:center;color:#62768c;font-size:14px}.panel{border:1px solid #d5e0ed;border-radius:12px;padding:16px;margin-top:16px}.info{padding:13px;background:#eaf2fb;border-radius:9px;margin-top:14px;white-space:pre-line;line-height:1.5;font-size:14px}.camera{position:relative;background:#172331;border-radius:12px;overflow:hidden;margin-top:12px;min-height:230px;display:flex;align-items:center;justify-content:center}.camera video{width:100%;display:block;transform:scaleX(-1)}.oval{position:absolute;left:19%;top:12%;width:62%;height:76%;border:3px dashed #ffd84d;border-radius:50%;pointer-events:none}.oval.ok{border-color:#33d18b}button{display:block;width:100%;background:#176ab3;color:#fff;border:0;border-radius:9px;padding:14px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:12px}button:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#15845f}.muted{background:#65758a}.hidden{display:none!important}.result{width:100%;border-radius:10px;margin-top:12px}.error{background:#fff0ef;color:#902a26}.success{background:#e6f6ed;color:#155d3d}small{display:block;color:#64748b;line-height:1.5;margin-top:13px}
+*{box-sizing:border-box}body{margin:0;background:#eef3f9;font-family:Arial,sans-serif;color:#173456;padding:16px}.app{max-width:470px;margin:20px auto;background:#fff;padding:22px;border-radius:17px;box-shadow:0 6px 24px #16375c15}h1{text-align:center;font-size:23px;margin:5px 0}.sub{text-align:center;color:#62768c;font-size:14px}.panel{border:1px solid #d5e0ed;border-radius:12px;padding:16px;margin-top:16px}.info{padding:13px;background:#eaf2fb;border-radius:9px;margin-top:14px;white-space:pre-line;line-height:1.5;font-size:14px}.camera{position:relative;background:#172331;border-radius:12px;overflow:hidden;margin-top:12px;min-height:230px;display:flex;align-items:center;justify-content:center}.camera video{width:100%;display:block;transform:scaleX(-1)}.oval{position:absolute;left:19%;top:12%;width:62%;height:76%;border:3px dashed #ffd84d;border-radius:50%;pointer-events:none}.oval.ok{border-color:#33d18b}button{display:block;width:100%;background:#176ab3;color:#fff;border:0;border-radius:9px;padding:14px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:12px}button:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#15845f}.muted{background:#65758a}.hidden{display:none!important}.result{width:100%;border-radius:10px;margin-top:12px}.error{background:#fff0ef;color:#902a26}.success{background:#e6f6ed;color:#155d3d;border:1px solid #a8dfbf;font-weight:600}.error{border:1px solid #f2b4ae}small{display:block;color:#64748b;line-height:1.5;margin-top:13px}
 </style>
 </head>
 <body>
 <main class="app">
-<h1>Registro de Asistencia V3.9.3</h1>
+<h1>Registro de Asistencia V3.10</h1>
 <p class="sub">Captura y comparación facial automática · PILOTO</p>
 <section class="panel"><strong id="trabajador">Validando DNI...</strong><div class="info" id="estado">Consultando el estado facial...</div></section>
 <section class="panel hidden" id="captura">
@@ -18,10 +18,18 @@
 <div class="camera"><video id="video" autoplay playsinline muted></video><div class="oval" id="oval"></div></div>
 <div class="info" id="mensajeCamara">Cámara pendiente de iniciar.</div>
 <button id="iniciar" type="button">Iniciar captura automática</button>
-<img id="foto" class="result hidden" alt="Fotografía de evidencia">
+<!-- La captura se conserva en memoria, sin vista previa pública. -->
 <button id="repetir" class="muted hidden" type="button">Repetir fotografía</button>
 <button id="registrar" class="secondary hidden" type="button">Registrar asistencia de emergencia</button>
-<div class="info hidden" id="resultado" role="status"></div>
+<div class="panel hidden" id="regularizacion" aria-label="Declaración de ingreso olvidado">
+<strong>Ingreso no registrado</strong>
+<p class="sub" style="text-align:left">Para registrar su salida, declare la hora aproximada de ingreso. No será considerada verificada hasta la revisión del supervisor.</p>
+<label for="horaManual">Hora aproximada de ingreso</label>
+<input id="horaManual" type="time" required style="width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:9px;margin-top:7px;font-size:17px">
+<label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:13px"><input type="checkbox" id="confirmarManual" style="margin-top:2px"> Confirmo que la hora indicada es mi declaración personal y está sujeta a revisión.</label>
+<button type="button" id="enviarManual" class="secondary">Confirmar salida con ingreso pendiente</button>
+</div>
+<div class="info hidden" id="resultado" role="status" aria-live="polite"></div>
 </section>
 <small>V3.9 PILOTO: comparación facial local, no validación biométrica confiable del servidor. La referencia aprobada se transmite al navegador por DNI; este piloto no autentica el acceso a fotografías. No usar en producción. Las marcaciones quedan sujetas a revisión.</small>
 </main>
@@ -45,7 +53,7 @@ const opciones=()=>new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThres
 async function imagenReferencia(data){return await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(Error('No se pudo decodificar referencia'));i.src=data;});}
 async function iniciar(){
  if(finalizado||enviando)return;
- detener();$('iniciar').disabled=true;$('iniciar').classList.add('hidden');$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');$('foto').classList.add('hidden');$('oval').classList.remove('ok');
+ detener();$('iniciar').disabled=true;$('iniciar').classList.add('hidden');$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');$('regularizacion').classList.add('hidden');$('oval').classList.remove('ok');
  try{
   aviso('Cargando modelos de reconocimiento facial...');await cargarModelos();
   if(estado==='APROBADO'&&!referencia){
@@ -84,7 +92,7 @@ async function ciclo(){
    if(espera>0){aviso('Rostro detectado y centrado. Manténgase quieto: '+espera.toFixed(1)+' s');await dormir(180);continue;}
    const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
    const x=c.getContext('2d');x.translate(c.width,0);x.scale(-1,1);x.drawImage(v,0,0);
-   fotoBase64=c.toDataURL('image/jpeg',.78);$('foto').src=fotoBase64;$('foto').classList.remove('hidden');
+   fotoBase64=c.toDataURL('image/jpeg',.78);
    // El descriptor se obtiene del fotograma capturado, no de otro fotograma posterior.
    detener();aviso('Rostro capturado. Comparando identidad...');
    if(estado!=='APROBADO'){resultado('Enrolamiento pendiente. No existe referencia aprobada para comparar; solicita revisión del supervisor.',true);return;}
@@ -103,19 +111,35 @@ async function ciclo(){
 function ubicacion(){return new Promise((resolve,reject)=>{if(!navigator.geolocation)return reject(Error('GPS no disponible'));navigator.geolocation.getCurrentPosition(p=>resolve({latitud:p.coords.latitude,longitud:p.coords.longitude,precision:p.coords.accuracy}),()=>reject(Error('No se pudo obtener ubicación GPS')), {enableHighAccuracy:true,timeout:20000,maximumAge:0});});}
 function nonceNuevo(){const b=new Uint8Array(16);crypto.getRandomValues(b);return Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');}
 async function consultarResultado(nonce){const u=new URL(PUENTE);u.searchParams.set('accion','resultado_asistencia');u.searchParams.set('dni',dni);u.searchParams.set('nonce',nonce);u.searchParams.set('_',Date.now());const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw Error('Consulta fallida');return r.json();}
-async function registrar(tipo,distancia){
+let tipoPendiente='NORMAL',distanciaPendiente=NaN;
+function mostrarRegularizacion(r){
+ $('regularizacion').classList.remove('hidden');
+ $('enviarManual').disabled=false;
+ resultado('SALIDA AÚN NO REGISTRADA\n'+(r.mensaje||'Indique su hora de ingreso olvidada.')+'\nOlvido N.º '+(r.numeroOlvido||'?')+'.',true);
+}
+function confirmacionExitosa(r){
+ const fecha=r.fecha||new Date().toLocaleDateString('es-PE');
+ const hora=r.tipo==='SALIDA'?(r.horaSalida||r.horaRegistro):(r.horaIngreso||r.horaRegistro);
+ const titulo=r.tipo==='SALIDA'?'SALIDA REGISTRADA':'INGRESO REGISTRADO';
+ let texto='✓ '+titulo+'\nColaborador: '+(r.colaborador||'No disponible')+'\nSede: '+(r.sedeRegistro||'No disponible')+'\nFecha: '+fecha+'\nHora: '+(hora||'No disponible');
+ if(r.ingresoPendienteRevision)texto+='\nIngreso declarado: '+(r.horaIngresoDeclarada||'')+' (NO VERIFICADO)\nPendiente de revisión del supervisor. Olvido N.º '+(r.numeroOlvido||'?')+'.';
+ if(r.comunicacionEscritaPendiente)texto+='\nCorresponde comunicación escrita pendiente de gestión.';
+ texto+='\n'+(r.mensajeRevisionFacial||'Marcación sujeta a revisión facial.');
+ resultado(texto,false);
+}
+async function registrar(tipo,distancia,horaManual='',confirmacionManual=false){
  if(enviando||finalizado||!fotoBase64)return;
- enviando=true;$('registrar').disabled=true;$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');
+ enviando=true;tipoPendiente=tipo;distanciaPendiente=distancia;$('registrar').disabled=true;$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');$('enviarManual').disabled=true;
  let enviado=false,form=null,iframe=null;
  try{
   resultado('Obteniendo ubicación GPS...');const gps=await ubicacion();const nonce=nonceNuevo();
   iframe=document.createElement('iframe');iframe.name='v39_'+nonce;iframe.style.display='none';document.body.appendChild(iframe);
   form=document.createElement('form');form.method='POST';form.action=PUENTE;form.target=iframe.name;form.style.display='none';
-  const d={accion:'registrarAsistenciaFacialV3',dni,latitud:gps.latitud,longitud:gps.longitud,precision:gps.precision,fotoBase64,nonce,tipoMarcacion:tipo==='EMERGENCIA'?'EMERGENCIA':'NORMAL',comparacionCliente:tipo==='NORMAL'?'COINCIDE':'FALLIDO',distanciaCliente:Number.isFinite(distancia)?distancia:''};
+  const d={accion:'registrarAsistenciaFacialV3',dni,latitud:gps.latitud,longitud:gps.longitud,precision:gps.precision,fotoBase64,nonce,tipoMarcacion:tipo==='EMERGENCIA'?'EMERGENCIA':'NORMAL',comparacionCliente:tipo==='NORMAL'?'COINCIDE':'FALLIDO',distanciaCliente:Number.isFinite(distancia)?distancia:'',horaIngresoManual:horaManual,confirmacionIngresoManual:confirmacionManual?'true':'false'};
   for(const [k,v] of Object.entries(d)){const input=document.createElement('input');input.name=k;input.value=String(v);form.appendChild(input);}document.body.appendChild(form);
-  resultado('Enviando marcación al servidor...');form.submit();enviado=true;finalizado=true;
+  resultado('Enviando marcación al servidor...');form.submit();enviado=true;
   let respuesta=null;for(let i=0;i<18;i++){await dormir(2500);try{const r=await consultarResultado(nonce);if(r.estado==='EN_PROCESO')continue;respuesta=r;break;}catch(e){}}
-  if(!respuesta){resultado('Marcación enviada pero no confirmada. NO vuelva a enviarla. El supervisor debe revisar la hoja Asistencia.',true);return;}
+  if(!respuesta){finalizado=true;resultado('Marcación enviada pero no confirmada. NO vuelva a enviarla. El supervisor debe revisar la hoja Asistencia.',true);return;}
   if(respuesta.ok){resultado('SOLICITUD REGISTRADA\n'+(respuesta.mensaje||'')+'\n'+(respuesta.mensajeRevisionFacial||'')+'\nIMPORTANTE: verificación biométrica local no autenticada por el servidor.');}
   else{resultado('Marcación rechazada: '+(respuesta.mensaje||'Error del servidor'),true);}
  }catch(e){resultado('No se completó el registro: '+(e.message||e),true);if(!enviado){finalizado=false;$('repetir').classList.remove('hidden');}}
@@ -129,7 +153,7 @@ async function consultar(){
  $('captura').classList.remove('hidden');await iniciar();
  }catch(e){$('estado').textContent='Error de consulta: '+(e.message||e);}
 }
-$('iniciar').onclick=iniciar;$('repetir').onclick=iniciar;$('registrar').onclick=()=>registrar('EMERGENCIA',NaN);window.addEventListener('pagehide',detener);consultar();
+$('iniciar').onclick=iniciar;$('repetir').onclick=iniciar;$('registrar').onclick=()=>registrar('EMERGENCIA',NaN);$('enviarManual').onclick=()=>{const hora=$('horaManual').value;if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)||!$('confirmarManual').checked){resultado('Indique una hora válida y confirme su declaración.',true);return;}registrar(tipoPendiente,distanciaPendiente,hora,true);};window.addEventListener('pagehide',detener);consultar();
 </script>
 </body>
 </html>
