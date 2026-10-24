@@ -3,14 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Asistencia Facial V3.10 - Piloto</title>
+<title>Asistencia Facial V3.10.3 - Piloto</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#eef3f9;font-family:Arial,sans-serif;color:#173456;padding:16px}.app{max-width:470px;margin:20px auto;background:#fff;padding:22px;border-radius:17px;box-shadow:0 6px 24px #16375c15}h1{text-align:center;font-size:23px;margin:5px 0}.sub{text-align:center;color:#62768c;font-size:14px}.panel{border:1px solid #d5e0ed;border-radius:12px;padding:16px;margin-top:16px}.info{padding:13px;background:#eaf2fb;border-radius:9px;margin-top:14px;white-space:pre-line;line-height:1.5;font-size:14px}.camera{position:relative;background:#172331;border-radius:12px;overflow:hidden;margin-top:12px;min-height:230px;display:flex;align-items:center;justify-content:center}.camera video{width:100%;display:block;transform:scaleX(-1)}.oval{position:absolute;left:19%;top:12%;width:62%;height:76%;border:3px dashed #ffd84d;border-radius:50%;pointer-events:none}.oval.ok{border-color:#33d18b}button{display:block;width:100%;background:#176ab3;color:#fff;border:0;border-radius:9px;padding:14px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:12px}button:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#15845f}.muted{background:#65758a}.hidden{display:none!important}.result{width:100%;border-radius:10px;margin-top:12px}.error{background:#fff0ef;color:#902a26}.success{background:#e6f6ed;color:#155d3d;border:1px solid #a8dfbf;font-weight:600}.error{border:1px solid #f2b4ae}small{display:block;color:#64748b;line-height:1.5;margin-top:13px}
+/* Comprobante claro y adaptable a móviles */
+.comprobante{margin-top:14px;padding:18px;background:#f2fbf6;border:1px solid #a8dfbf;border-radius:12px;color:#173456}
+.comprobante h2{font-size:19px;color:#12633e;margin:0 0 16px;line-height:1.3}
+.comprobante .dato{display:grid;grid-template-columns:115px minmax(0,1fr);gap:8px;padding:9px 0;border-bottom:1px solid #dcebe2;font-size:14px;line-height:1.45}
+.comprobante .dato:last-of-type{border-bottom:0}
+.comprobante .etiqueta{font-weight:700;color:#4c6173}
+.comprobante .valor{overflow-wrap:anywhere}
+.comprobante .nota{margin-top:15px;padding:11px 12px;border-radius:8px;background:#fff4db;color:#6b4a0b;font-size:13px;line-height:1.5}
+.comprobante .nota-facial{margin-top:10px;color:#64748b;font-size:12px;line-height:1.5}
+@media(max-width:390px){.comprobante .dato{grid-template-columns:1fr;gap:2px}}
 </style>
 </head>
 <body>
 <main class="app">
-<h1>Registro de Asistencia V3.10</h1>
+<h1>Registro de Asistencia V3.10.3</h1>
 <p class="sub">Captura y comparación facial automática · PILOTO</p>
 <section class="panel"><strong id="trabajador">Validando DNI...</strong><div class="info" id="estado">Consultando el estado facial...</div></section>
 <section class="panel hidden" id="captura">
@@ -44,7 +54,7 @@ let dni='',estado='',stream=null,activo=false,comprobando=false,modeloListo=fals
 let fotoBase64='',enviando=false,intentos=0,referencia=null,finalizado=false;
 let estableDesde=0,ultimoCentro=null;
 function aviso(s){$('mensajeCamara').textContent=s;}
-function resultado(s,error=false){const e=$('resultado');e.classList.remove('hidden');e.classList.toggle('error',error);e.classList.toggle('success',!error);e.textContent=s;}
+function resultado(s,error=false){const e=$('resultado');e.classList.remove('hidden','comprobante');e.replaceChildren();e.classList.toggle('error',error);e.classList.toggle('success',!error);e.textContent=s;}
 function detener(){activo=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}$('video').srcObject=null;}
 function dormir(ms){return new Promise(r=>setTimeout(r,ms));}
 async function obtenerJSON(accion){const u=new URL(PUENTE);u.searchParams.set('accion',accion);u.searchParams.set('dni',dni);u.searchParams.set('_',Date.now());const c=new AbortController(),timer=setTimeout(()=>c.abort(),15000);try{const r=await fetch(u,{cache:'no-store',signal:c.signal});if(!r.ok)throw Error('Servidor no disponible');return await r.json();}finally{clearTimeout(timer);}}
@@ -118,15 +128,37 @@ function mostrarRegularizacion(r){
  resultado('SALIDA AÚN NO REGISTRADA\n'+(r.mensaje||'Indique su hora de ingreso olvidada.')+'\nOlvido N.º '+(r.numeroOlvido||'?')+'.',true);
 }
 function confirmacionExitosa(r){
- const fecha=r.fecha||new Date().toLocaleDateString('es-PE');
- const hora=r.tipo==='SALIDA'?(r.horaSalida||r.horaRegistro):(r.horaIngreso||r.horaRegistro);
- const titulo=r.tipo==='SALIDA'?'SALIDA REGISTRADA':'INGRESO REGISTRADO';
- let texto='✓ '+titulo+'\nColaborador: '+(r.colaborador||'No disponible')+'\nSede: '+(r.sedeRegistro||'No disponible')+'\nFecha: '+fecha+'\nHora: '+(hora||'No disponible');
- if(r.ingresoPendienteRevision)texto+='\nIngreso declarado: '+(r.horaIngresoDeclarada||'')+' (NO VERIFICADO)\nPendiente de revisión del supervisor. Olvido N.º '+(r.numeroOlvido||'?')+'.';
- if(r.comunicacionEscritaPendiente)texto+='\nCorresponde comunicación escrita pendiente de gestión.';
- texto+='\n'+(r.mensajeRevisionFacial||'Marcación sujeta a revisión facial.');
- resultado(texto,false);
+ const cont=$('resultado');cont.classList.remove('hidden','error','success');
+ cont.classList.add('comprobante');cont.replaceChildren();
+ const titulo=document.createElement('h2');
+ titulo.textContent=r.tipo==='SALIDA'?'✓ SALIDA REGISTRADA CORRECTAMENTE':'✓ INGRESO REGISTRADO CORRECTAMENTE';
+ cont.appendChild(titulo);
+ const dato=(etiqueta,valor)=>{
+  const fila=document.createElement('div');fila.className='dato';
+  const nombre=document.createElement('span');nombre.className='etiqueta';nombre.textContent=etiqueta;
+  const contenido=document.createElement('span');contenido.className='valor';contenido.textContent=String(valor||'—');
+  fila.append(nombre,contenido);cont.appendChild(fila);
+ };
+ dato('Colaborador',r.colaborador);
+ dato('Cargo',r.cargo);
+ dato('Sede',r.sedeRegistro);
+ dato('Fecha',r.fecha||new Date().toLocaleDateString('es-PE'));
+ dato(r.tipo==='SALIDA'?'Hora de salida':'Hora de ingreso',r.tipo==='SALIDA'?(r.horaSalida||r.horaRegistro):(r.horaIngreso||r.horaRegistro));
+ if(r.ingresoPendienteRevision){
+  dato('Ingreso declarado',r.horaIngresoDeclarada+' (no verificado)');
+  dato('Estado','Pendiente de revisión');
+  dato('Olvidos acumulados',r.numeroOlvido);
+  const nota=document.createElement('div');nota.className='nota';
+  nota.textContent=r.comunicacionEscritaPendiente
+   ? 'La hora declarada requiere validación del supervisor. Corresponde gestionar la comunicación escrita por el tercer olvido.'
+   : 'La hora declarada requiere validación del supervisor; no equivale a un ingreso registrado.';
+  cont.appendChild(nota);
+ }
+ const advertencia=document.createElement('div');advertencia.className='nota-facial';
+ advertencia.textContent='Piloto: coincidencia facial local no autenticada por el servidor. Marcación sujeta a revisión.';
+ cont.appendChild(advertencia);
 }
+
 async function registrar(tipo,distancia,horaManual='',confirmacionManual=false){
  if(enviando||finalizado||!fotoBase64)return;
  enviando=true;tipoPendiente=tipo;distanciaPendiente=distancia;$('registrar').disabled=true;$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');$('enviarManual').disabled=true;
