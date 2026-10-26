@@ -3,28 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Asistencia Facial V3.10.3 - Piloto</title>
+<title>Asistencia Facial V3.10.5 - Piloto</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#eef3f9;font-family:Arial,sans-serif;color:#173456;padding:16px}.app{max-width:470px;margin:20px auto;background:#fff;padding:22px;border-radius:17px;box-shadow:0 6px 24px #16375c15}h1{text-align:center;font-size:23px;margin:5px 0}.sub{text-align:center;color:#62768c;font-size:14px}.panel{border:1px solid #d5e0ed;border-radius:12px;padding:16px;margin-top:16px}.info{padding:13px;background:#eaf2fb;border-radius:9px;margin-top:14px;white-space:pre-line;line-height:1.5;font-size:14px}.camera{position:relative;background:#172331;border-radius:12px;overflow:hidden;margin-top:12px;min-height:230px;display:flex;align-items:center;justify-content:center}.camera video{width:100%;display:block;transform:scaleX(-1)}.oval{position:absolute;left:19%;top:12%;width:62%;height:76%;border:3px dashed #ffd84d;border-radius:50%;pointer-events:none}.oval.ok{border-color:#33d18b}button{display:block;width:100%;background:#176ab3;color:#fff;border:0;border-radius:9px;padding:14px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:12px}button:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#15845f}.muted{background:#65758a}.hidden{display:none!important}.result{width:100%;border-radius:10px;margin-top:12px}.error{background:#fff0ef;color:#902a26}.success{background:#e6f6ed;color:#155d3d;border:1px solid #a8dfbf;font-weight:600}.error{border:1px solid #f2b4ae}small{display:block;color:#64748b;line-height:1.5;margin-top:13px}
 /* Comprobante claro y adaptable a móviles */
-.comprobante{margin-top:14px;padding:18px;background:#f2fbf6;border:1px solid #a8dfbf;border-radius:12px;color:#173456}
-.comprobante h2{font-size:19px;color:#12633e;margin:0 0 16px;line-height:1.3}
-.comprobante .dato{display:grid;grid-template-columns:115px minmax(0,1fr);gap:8px;padding:9px 0;border-bottom:1px solid #dcebe2;font-size:14px;line-height:1.45}
+.comprobante{margin-top:12px;padding:14px;background:#f2fbf6;border:1px solid #a8dfbf;border-radius:12px;color:#173456}
+.comprobante h2{font-size:18px;color:#12633e;margin:0 0 10px;line-height:1.3}
+.comprobante .dato{display:grid;grid-template-columns:minmax(0,42%) minmax(0,58%);gap:6px;padding:7px 0;border-bottom:1px solid #dcebe2;font-size:13px;line-height:1.35}
 .comprobante .dato:last-of-type{border-bottom:0}
 .comprobante .etiqueta{font-weight:700;color:#4c6173}
 .comprobante .valor{overflow-wrap:anywhere}
-.comprobante .nota{margin-top:15px;padding:11px 12px;border-radius:8px;background:#fff4db;color:#6b4a0b;font-size:13px;line-height:1.5}
+.comprobante .nota{margin-top:10px;padding:9px 10px;border-radius:8px;background:#fff4db;color:#6b4a0b;font-size:13px;line-height:1.5}
 .comprobante .nota-facial{margin-top:10px;color:#64748b;font-size:12px;line-height:1.5}
-@media(max-width:390px){.comprobante .dato{grid-template-columns:1fr;gap:2px}}
+@media(max-width:340px){.comprobante .dato{grid-template-columns:minmax(0,42%) minmax(0,58%);gap:5px;font-size:12px}}
 </style>
 </head>
 <body>
 <main class="app">
-<h1>Registro de Asistencia V3.10.3</h1>
+<h1>Registro de Asistencia V3.10.5</h1>
 <p class="sub">Captura y comparación facial automática · PILOTO</p>
 <section class="panel"><strong id="trabajador">Validando DNI...</strong><div class="info" id="estado">Consultando el estado facial...</div></section>
 <section class="panel hidden" id="captura">
-<strong>Fotografía de marcación</strong>
+<strong id="tituloCaptura">Fotografía de marcación</strong>
 <div class="camera"><video id="video" autoplay playsinline muted></video><div class="oval" id="oval"></div></div>
 <div class="info" id="mensajeCamara">Cámara pendiente de iniciar.</div>
 <button id="iniciar" type="button">Iniciar captura automática</button>
@@ -150,8 +150,8 @@ function confirmacionExitosa(r){
   dato('Olvidos acumulados',r.numeroOlvido);
   const nota=document.createElement('div');nota.className='nota';
   nota.textContent=r.comunicacionEscritaPendiente
-   ? 'La hora declarada requiere validación del supervisor. Corresponde gestionar la comunicación escrita por el tercer olvido.'
-   : 'La hora declarada requiere validación del supervisor; no equivale a un ingreso registrado.';
+   ? 'Ingreso no verificado. Revisión del supervisor y comunicación escrita pendientes.'
+   : 'Ingreso declarado no verificado. Requiere revisión del supervisor.';
   cont.appendChild(nota);
  }
  const advertencia=document.createElement('div');advertencia.className='nota-facial';
@@ -193,6 +193,7 @@ if(new URLSearchParams(location.search).get('demo')==='1'){
  $('estado').textContent='Vista previa del comprobante. No se ha realizado ninguna marcación.';
  $('captura').classList.remove('hidden');
  $('captura').querySelector('.camera').classList.add('hidden');
+ $('tituloCaptura').textContent='Vista previa del comprobante';
  $('mensajeCamara').classList.add('hidden');
  $('iniciar').classList.add('hidden');
  $('regularizacion').classList.add('hidden');
