@@ -186,7 +186,19 @@ async function consultar(){
  $('captura').classList.remove('hidden');await iniciar();
  }catch(e){$('estado').textContent='Error de consulta: '+(e.message||e);}
 }
-$('iniciar').onclick=iniciar;$('repetir').onclick=iniciar;$('registrar').onclick=()=>registrar('EMERGENCIA',NaN);$('enviarManual').onclick=()=>{const hora=$('horaManual').value;if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)||!$('confirmarManual').checked){resultado('Indique una hora válida y confirme su declaración.',true);return;}registrar(tipoPendiente,distanciaPendiente,hora,true);};window.addEventListener('pagehide',detener);consultar();
+$('iniciar').onclick=iniciar;$('repetir').onclick=iniciar;$('registrar').onclick=()=>registrar('EMERGENCIA',NaN);$('enviarManual').onclick=()=>{const hora=$('horaManual').value;if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)||!$('confirmarManual').checked){resultado('Indique una hora válida y confirme su declaración.',true);return;}registrar(tipoPendiente,distanciaPendiente,hora,true);};window.addEventListener('pagehide',detener);
+// Modo de vista previa: no consulta API, no abre cámara ni registra asistencia.
+if(new URLSearchParams(location.search).get('demo')==='1'){
+ $('trabajador').textContent='DEMOSTRACIÓN — DATOS FICTICIOS';
+ $('estado').textContent='Vista previa del comprobante. No se ha realizado ninguna marcación.';
+ $('captura').classList.remove('hidden');
+ $('captura').querySelector('.camera').classList.add('hidden');
+ $('mensajeCamara').classList.add('hidden');
+ $('iniciar').classList.add('hidden');
+ $('regularizacion').classList.add('hidden');
+ confirmacionExitosa({ok:true,tipo:'SALIDA',colaborador:'PERSONA DE EJEMPLO',cargo:'Técnico de taller',sedeRegistro:'Sede de demostración',fecha:'22/10/2026',horaSalida:'17:30',ingresoPendienteRevision:true,horaIngresoDeclarada:'07:15',numeroOlvido:1,comunicacionEscritaPendiente:false});
+ const marca=document.createElement('p');marca.textContent='SOLO DEMOSTRACIÓN · No es un comprobante válido';marca.style.cssText='text-align:center;color:#9a3412;font-weight:bold;font-size:12px;margin-top:14px';$('captura').appendChild(marca);
+}else{consultar();}
 </script>
 </body>
 </html>
