@@ -66,12 +66,12 @@ async function iniciar(){
  detener();$('iniciar').disabled=true;$('iniciar').classList.add('hidden');$('repetir').classList.add('hidden');$('registrar').classList.add('hidden');$('regularizacion').classList.add('hidden');$('oval').classList.remove('ok');
  try{
   aviso('Cargando modelos de reconocimiento facial...');await cargarModelos();
-  if(estado==='APROBADO'&&!referencia){
+  if((estado==='APROBADO'||estado==='PENDIENTE')&&!referencia){
    const d=await obtenerJSON('referencia_piloto_v39');
    if(!d.ok||!d.imagenBase64)throw Error('Referencia no disponible. No se puede validar identidad.');
    const img=await imagenReferencia(d.imagenBase64);
    const f=await faceapi.detectSingleFace(img,opciones()).withFaceLandmarks().withFaceDescriptor();
-   if(!f)throw Error('La referencia aprobada no contiene un rostro procesable. Solicita nuevo enrolamiento.');
+   if(!f)throw Error('La referencia facial no contiene un rostro procesable. Solicita nuevo enrolamiento.');
    referencia=f.descriptor;
   }
   aviso('Solicitando cámara frontal...');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});$('video').srcObject=stream;await $('video').play();
@@ -105,7 +105,7 @@ async function ciclo(){
    fotoBase64=c.toDataURL('image/jpeg',.78);
    // El descriptor se obtiene del fotograma capturado, no de otro fotograma posterior.
    detener();aviso('Rostro capturado. Comparando identidad...');
-   if(estado!=='APROBADO'){resultado('Enrolamiento pendiente. No existe referencia aprobada para comparar; solicita revisión del supervisor.',true);return;}
+   if(!['APROBADO','PENDIENTE'].includes(estado)){resultado('Se requiere enrolamiento válido.',true);return;}
    const f=await faceapi.detectSingleFace(c,opciones()).withFaceLandmarks().withFaceDescriptor();
    if(!f){aviso('Imagen borrosa o incompleta. Repita la captura; no cuenta como fallo de identidad.');$('repetir').classList.remove('hidden');return;}
    const distancia=faceapi.euclideanDistance(f.descriptor,referencia);
@@ -181,8 +181,8 @@ async function registrar(tipo,distancia,horaManual='',confirmacionManual=false){
 async function consultar(){
  dni=String(new URLSearchParams(location.search).get('dni')||'').trim();if(!/^\d{8}$/.test(dni)){$('estado').textContent='Falta DNI válido. Regrese a primera pantalla.';return;}
  $('trabajador').textContent='DNI: '+dni;
- try{const d=await obtenerJSON('estado_facial');if(!d.ok||d.estado!=='APROBADO'){$('estado').textContent='No se puede continuar: '+(d.mensaje||d.estado);return;}
- estado=d.estado;$('estado').textContent=estado==='APROBADO'?'Referencia aprobada. Comparación facial local de piloto; registro automático sujeto a revisión.':'Enrolamiento pendiente. No se permite registrar asistencia.';
+ try{const d=await obtenerJSON('estado_facial');if(!d.ok||!['APROBADO','PENDIENTE'].includes(d.estado)){$('estado').textContent='No se puede continuar: '+(d.mensaje||d.estado);return;}
+ estado=d.estado;$('estado').textContent=estado==='APROBADO'?'Referencia aprobada. Comparación facial local de piloto; registro automático sujeto a revisión.':'Enrolamiento PENDIENTE. Comparación con fotografía provisional; asistencia sujeta a revisión administrativa.';
  $('captura').classList.remove('hidden');await iniciar();
  }catch(e){$('estado').textContent='Error de consulta: '+(e.message||e);}
 }
